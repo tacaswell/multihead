@@ -14,6 +14,7 @@ numpy = ">=2.2.5,<3"
 h5py = ">=3.13.0,<4"
 hdf5-external-filter-plugins-lz4 = ">=0.1.0,<0.2"
 hdf5-external-filter-plugins-bitshuffle = ">=0.1.0,<0.2"
+scikit-image = ">=0.25.2,<0.26"
 
 [pypi-dependencies]
 hrd_test = { path = ".", editable = true }
