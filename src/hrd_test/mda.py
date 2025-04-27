@@ -19,7 +19,7 @@ have_fast_xdr = False
 #	have_fast_xdr = True
 #except:
 #	import xdrlib as xdr
-import xdrlib as xdr
+from . import xdrlib as xdr
 
 try:
 	import Tkinter
