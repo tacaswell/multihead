@@ -160,7 +160,7 @@ unfixable = [
   "F841", # Removes unused variables
 ]
 
-isort.required-imports = ["from __future__ import annotations"]
+
 # Uncomment if using a _compat.typing backport
 # typing-modules = ["hrd_test._compat.typing"]
 
