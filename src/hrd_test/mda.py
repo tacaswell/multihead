@@ -7,27 +7,17 @@
 
 __version__ = "2.1.1"
 
-import sys
+import copy
 import os
 import string
-
-have_fast_xdr = False
-# try:
-# import f_xdrlib as xdr
-# have_fast_xdr = True
-# except:
-# import xdrlib as xdr
-from . import xdrlib as xdr
-
+import sys
 
 import numpy
 
+from . import xdrlib as xdr
+
+have_fast_xdr = False
 use_numpy = have_numpy = True
-
-# If we can import numpy, and if caller asks us to use it, we'll
-# return data in numpy arrays.  Otherwise, we'll return data in lists.
-
-import copy
 
 
 ################################################################################
