@@ -1,0 +1,10 @@
+[workspace]
+authors = ["Thomas A Caswell <tcaswell@bnl.gov>"]
+channels = ["conda-forge"]
+name = "Lab6_testdata_share"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]

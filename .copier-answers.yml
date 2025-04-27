@@ -1,0 +1,12 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: 2025.01.22
+_src_path: gh:scientific-python/cookie
+backend: hatch
+email: tcaswell@bnl.gov
+full_name: Thomas A Caswell
+license: BSD
+org: tacaswell
+project_name: hrd_test
+project_short_description: Code to work with example data from APS to prep for HRD
+url: https://github.com/tacaswell/hrd_test
+vcs: true
