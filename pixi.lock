@@ -41,6 +41,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/h5py-3.13.0-nompi_py312hedeef09_100.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/harfbuzz-11.1.0-h3beb420_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-1.14.3-nompi_h2d575fe_109.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-external-filter-plugins-bitshuffle-0.1.0-hbf2f7ba_15.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-external-filter-plugins-lz4-0.1.0-hbf2f7ba_15.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/icu-75.1-he02047a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ipython-9.2.0-pyhfb0248b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ipython_pygments_lexers-1.1.1-pyhd8ed1ab_0.conda
@@ -105,6 +107,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxml2-2.13.7-h4bc477f_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libxslt-1.1.39-h76b75d6_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/libzlib-1.3.1-hb9d3cd8_2.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.10.0-h5888daf_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.10.1-py312h7900ff3_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.10.1-py312hd3ec401_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/matplotlib-inline-0.1.7-pyhd8ed1ab_1.conda
@@ -593,10 +596,38 @@ packages:
   purls: []
   size: 3930078
   timestamp: 1737516601132
+- conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-external-filter-plugins-bitshuffle-0.1.0-hbf2f7ba_15.conda
+  sha256: 03baac6ebc9142a5db8eb482fdfc006d4ddae96f66c7fe6a8b5132db0dcc15b9
+  md5: 27d3dd7c0773f7090adc2fffadc2cbdd
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - hdf5 >=1.14.3,<1.14.4.0a0
+  - libgcc >=13
+  - libstdcxx >=13
+  - lz4-c >=1.10.0,<1.11.0a0
+  license: MIT AND LicenseRef-HDF5 AND BSD-3-Clause
+  license_family: OTHER
+  purls: []
+  size: 26617
+  timestamp: 1737101799717
+- conda: https://conda.anaconda.org/conda-forge/linux-64/hdf5-external-filter-plugins-lz4-0.1.0-hbf2f7ba_15.conda
+  sha256: 24e40f8c69377f98bb44a5996fc11972a7fe0fe7cf3ccda543cd11a7bf4ee5ae
+  md5: 5d4b00225beccc2f55f239b5d83af516
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - hdf5 >=1.14.3,<1.14.4.0a0
+  - libgcc >=13
+  - libstdcxx >=13
+  - lz4-c >=1.10.0,<1.11.0a0
+  license: MIT AND LicenseRef-HDF5 AND BSD-3-Clause
+  license_family: OTHER
+  purls: []
+  size: 19142
+  timestamp: 1737101828620
 - pypi: .
   name: hrd-test
-  version: 0.1.dev1+g6d7c625.d20250427
-  sha256: ac88012f2b01a403ae591b2b545bcaced6d214364638306d3bae1e7e98fd1069
+  version: 0.1.dev9+gc198e81.d20250427
+  sha256: c5e90369a091c7f76e513de26541a4593fe03b0c20893c196aca808eb10607cc
   requires_dist:
   - pytest-cov>=3 ; extra == 'dev'
   - pytest>=6 ; extra == 'dev'
@@ -1412,6 +1443,18 @@ packages:
   purls: []
   size: 60963
   timestamp: 1727963148474
+- conda: https://conda.anaconda.org/conda-forge/linux-64/lz4-c-1.10.0-h5888daf_1.conda
+  sha256: 47326f811392a5fd3055f0f773036c392d26fdb32e4d8e7a8197eed951489346
+  md5: 9de5350a85c4a20c685259b889aa6393
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libgcc >=13
+  - libstdcxx >=13
+  license: BSD-2-Clause
+  license_family: BSD
+  purls: []
+  size: 167055
+  timestamp: 1733741040117
 - conda: https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.10.1-py312h7900ff3_0.conda
   sha256: f1f2d2e0d86cc18b91296f3c5b89a35879d720075610ae93c1d8e92373de50ec
   md5: b598ea33028b8c40bee0fbc2e94b9870
