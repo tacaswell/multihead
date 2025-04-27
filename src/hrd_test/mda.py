@@ -614,7 +614,7 @@ def readMDA(
             "I can't read MDA version %f.  Is this really an MDA file?\n" % (version)
         )
         if outFile:
-            close(out)
+            out.close()
         return None
 
     scan_number = u.unpack_int()
