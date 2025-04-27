@@ -21,13 +21,10 @@ have_fast_xdr = False
 # import xdrlib as xdr
 from . import xdrlib as xdr
 
-try:
-    import numpy
 
-    have_numpy = True
-except:
-    have_numpy = False
-use_numpy = have_numpy
+import numpy
+
+use_numpy = have_numpy = True
 
 # If we can import numpy, and if caller asks us to use it, we'll
 # return data in numpy arrays.  Otherwise, we'll return data in lists.
@@ -91,7 +88,6 @@ class scanPositioner:
         self.data = []  # list of values written to 'name' PV.  If rank==2, lists of lists, etc.
 
     def __str__(self):
-        global use_numpy
         data = self.data
         if use_numpy:
             n = data.ndim
@@ -139,7 +135,6 @@ class scanDetector:
         self.data = []  # list of values read from 'name' PV.  If rank==2, lists of lists, etc.
 
     def __str__(self):
-        global use_numpy
         data = self.data
         if use_numpy:
             n = data.ndim
@@ -601,18 +596,15 @@ def readMDA(
     verbose=0,
     showHelp=0,
     outFile=None,
-    useNumpy=None,
     readQuick=False,
 ):
     """usage readMDA(fname=None, maxdim=4, verbose=0, showHelp=0, outFile=None, useNumpy=None, readQuick=False)"""
-    global use_numpy
 
     if useNumpy and not have_numpy:
         print(
             "readMDA: Caller requires that we use the python 'numpy' package, but we can't import it."
         )
         return None
-    use_numpy = useNumpy
 
     dim = []
     if not os.path.isfile(fname):
