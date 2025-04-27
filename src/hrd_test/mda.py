@@ -22,22 +22,6 @@ have_fast_xdr = False
 from . import xdrlib as xdr
 
 try:
-    import Tkinter
-
-    have_Tkinter = True
-except:
-    have_Tkinter = False
-    try:
-        import wx
-
-        have_wx = True
-    except:
-        have_wx = False
-
-if have_Tkinter:
-    import tkFileDialog
-
-try:
     import numpy
 
     have_numpy = True
@@ -612,7 +596,7 @@ def EPICS_types(n):
 
 
 def readMDA(
-    fname=None,
+    fname,
     maxdim=4,
     verbose=0,
     showHelp=0,
@@ -631,27 +615,6 @@ def readMDA(
     use_numpy = useNumpy
 
     dim = []
-    if fname == None:
-        if have_Tkinter:
-            fname = tkFileDialog.Open().show()
-        elif have_wx:
-            app = wx.App()
-            wildcard = "MDA (*.mda)|*.mda|All files (*.*)|*.*"
-            dlg = wx.FileDialog(
-                None,
-                message="Choose a file",
-                defaultDir=os.getcwd(),
-                defaultFile="",
-                wildcard=wildcard,
-                style=wx.OPEN | wx.CHANGE_DIR,
-            )
-            if dlg.ShowModal() == wx.ID_OK:
-                fname = dlg.GetPath()
-            dlg.Destroy()
-            app.Destroy()
-        else:
-            print("No file specified, and no file dialog could be opened")
-            return None
     if not os.path.isfile(fname):
         if not fname.endswith(".mda"):
             fname = fname + ".mda"
