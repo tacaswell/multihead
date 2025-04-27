@@ -8,3 +8,10 @@ version = "0.1.0"
 [tasks]
 
 [dependencies]
+matplotlib = ">=3.10.1,<4"
+ipython = ">=9.2.0,<10"
+numpy = ">=2.2.5,<3"
+h5py = ">=3.13.0,<4"
+
+[pypi-dependencies]
+hrd_test = { path = ".", editable = true }
