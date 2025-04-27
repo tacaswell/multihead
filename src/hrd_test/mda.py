@@ -98,9 +98,7 @@ class scanPositioner:
         else:
             n = 1
             dimString = str(len(data))
-            while (len(data) > 0) and (
-                (type(data[0]) == type([])) or (type(data[0]) == type(()))
-            ):
+            while (len(data) > 0) and (isinstance(data[0], list | tuple)):
                 data = data[0]
                 n = n + 1
                 dimString = dimString + "x" + str(len(data))
@@ -146,7 +144,7 @@ class scanDetector:
             n = 1
             dimString = str(len(data))
             while (len(data) > 0) and (
-                (type(data[0]) == type([])) or (type(data[0]) == type(()))
+                    isinstance(data[0], list | tuple)
             ):
                 data = data[0]
                 n = n + 1
@@ -227,13 +225,13 @@ def posName(i):
 
 
 def verboseData(data, out=sys.stdout, asHex=False):
-    if (len(data) > 0) and (type(data[0]) == type([])):
+    if (len(data) > 0) and (isinstance(data[0], list)):
         for i in len(data):
             verboseData(data[i], out)
     else:
         out.write("[")
         for datum in data:
-            if type(datum) == type(0):
+            if isinstance(datum, int):
                 if asHex:
                     out.write(" 0x%x" % datum)
                 else:
@@ -257,7 +255,7 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
 
     scan = scanDim()  # data structure to hold scan info and data
     buf = scanFile.read(100000)  # enough to read scan header and info
-    if unpacker == None:
+    if unpacker is None:
         u = xdr.Unpacker(buf)
     else:
         u = unpacker
@@ -427,7 +425,7 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
 
     scan = scanDim()  # data structure to hold scan info and data
     buf = scanFile.read(10000)  # enough to read scan header
-    if unpacker == None:
+    if unpacker is None:
         u = xdr.Unpacker(buf)
     else:
         u = unpacker
@@ -486,7 +484,7 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
 
     file_loc_det = scanFile.tell() - (len(buf) - u.get_position())
 
-    if (detToDat_offset == None) or (not useDetToDatOffset):
+    if (detToDat_offset is None) or (not useDetToDatOffset):
         for j in range(scan.nd):
             scan.d.append(scanDetector())
             scan.d[j].number = u.unpack_int()
@@ -521,7 +519,7 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
             )
         scanFile.seek(file_loc)
     else:
-        for j in range(scan.nd):
+        for _ in range(scan.nd):
             scan.d.append(scanDetector())
         scanFile.seek(file_loc_det + detToDat_offset)
 
@@ -533,7 +531,7 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
     else:
         data = u.unpack_farray(scan.npts * scan.np, u.unpack_double)
     for j in range(scan.np):
-        start = j * scan.npts
+        # start = j * scan.npts
         scan.p[j].data = data[j * scan.npts : (j + 1) * scan.npts]
 
     # detectors
@@ -598,13 +596,7 @@ def readMDA(
     outFile=None,
     readQuick=False,
 ):
-    """usage readMDA(fname=None, maxdim=4, verbose=0, showHelp=0, outFile=None, useNumpy=None, readQuick=False)"""
-
-    if useNumpy and not have_numpy:
-        print(
-            "readMDA: Caller requires that we use the python 'numpy' package, but we can't import it."
-        )
-        return None
+    """usage readMDA(fname=None, maxdim=4, verbose=0, showHelp=0, outFile=None, readQuick=False)"""
 
     dim = []
     if not os.path.isfile(fname):
@@ -614,7 +606,7 @@ def readMDA(
             print(fname, "not found")
             return None
 
-    if outFile == None:
+    if outFile is None:
         out = sys.stdout
     else:
         out = open(outFile, "w")
@@ -1000,14 +992,14 @@ def readMDA(
                 # value = u.unpack_fstring(count)
                 vect = u.unpack_farray(count, u.unpack_int)
                 value = ""
-                for i in range(len(vect)):
+                for j in range(len(vect)):
                     # treat the byte array as a null-terminated string
-                    if vect[i] == 0:
+                    if vect[j] == 0:
                         break
                     value = value + chr(vect[i])
-            elif EPICS_type == 29:  # DBR_CTRL_SHORT
+            elif EPICS_type == 29: # DBR_CTRL_SHORT
                 value = u.unpack_farray(count, u.unpack_int)
-            elif EPICS_type == 33:  # DBR_CTRL_LONG
+            elif EPICS_type == 33: # DBR_CTRL_LONG
                 value = u.unpack_farray(count, u.unpack_int)
             elif EPICS_type == 30:  # DBR_CTRL_FLOAT
                 value = u.unpack_farray(count, u.unpack_float)
@@ -1141,7 +1133,7 @@ def skimMDA(fname=None, verbose=False):
     """usage skimMDA(fname=None)"""
     # print("skimMDA: filename=", fname)
     dim = []
-    if fname == None:
+    if fname is None:
         print("No file specified")
         return None
     if not os.path.isfile(fname):
@@ -1153,7 +1145,7 @@ def skimMDA(fname=None, verbose=False):
 
     try:
         dataFile = open(fname, "rb")
-    except:
+    except Exception:
         print("mda_f:skimMDA: failed to open file '%s'" % fname)
         return None
 
@@ -1175,7 +1167,7 @@ def skimMDA(fname=None, verbose=False):
     # collect 1D data
     dataFile.seek(pmain_scan)
     scan = skimScan(dataFile)
-    if scan == None:
+    if scan is None:
         if verbose:
             print(fname, "contains no data")
         return None
@@ -1249,7 +1241,7 @@ def packScanHead(scan):
     if scan.rank > 1:
         # Pack zeros for now, so we'll know how much
         # space the real offsets will use.
-        for j in range(scan.npts):
+        for _ in range(scan.npts):
             p.pack_int(0)
     s.pLowerScansBuf = p.get_buffer()
 
@@ -1364,9 +1356,9 @@ def writeMDA(dim, fname=None):
     p = xdr.Packer()
 
     p.reset()
-    if type(dim) != type([]):
+    if not isinstance(dim, list):
         print("writeMDA: first arg must be a scan")
-    if (fname != None) and (type(fname) != type("")):
+    if (fname is not None) and (not isinstance(fname, str)):
         print("writeMDA: second arg must be a filename or None")
     rank = dim[0]["rank"]  # rank of scan as a whole
     # write file header
@@ -1428,15 +1420,15 @@ def writeMDA(dim, fname=None):
     p.reset()
 
     numKeys = 0
-    for name in dim[0].keys():
-        if not (name in dim[0]["ourKeys"]):
+    for name in dim[0]:
+        if name not in dim[0]["ourKeys"]:
             numKeys = numKeys + 1
     p.pack_int(numKeys)
 
-    for name in dim[0].keys():
+    for name in dim[0]:
         # Note we don't want to write the dict entries we made for our own
         # use in the scanDim object.
-        if not (name in dim[0]["ourKeys"]):
+        if name not in dim[0]["ourKeys"]:
             desc = dim[0][name][0]
             unit = dim[0][name][1]
             value = dim[0][name][2]
@@ -1569,11 +1561,11 @@ def getFormat(d, rank):
 
 
 def writeAscii(d, fname=None):
-    if type(d) != type([]):
+    if not isinstance(d, list):
         print("writeMDA: first arg must be a scan")
         return
 
-    if fname == None:
+    if fname is None:
         f = sys.stdout
     else:
         f = open(fname, "wb")
@@ -1595,11 +1587,11 @@ def writeAscii(d, fname=None):
     f.write("#\n# Scan-environment PV values:\n")
     ourKeys = d[0]["ourKeys"]
     maxKeyLen = 0
-    for i in d[0].keys():
+    for i in d[0]:
         if i not in ourKeys:
             if len(i) > maxKeyLen:
                 maxKeyLen = len(i)
-    for i in d[0].keys():
+    for i in d[0]:
         if i not in ourKeys:
             f.write("#%s%s%s\n" % (i, (maxKeyLen - len(i)) * " ", d[0][i]))
 
@@ -1667,7 +1659,7 @@ def writeAscii(d, fname=None):
     if len(d) > 3:
         f.write("\n# Can't write 3D (or higher) data\n")
 
-    if fname != None:
+    if fname is not None:
         f.close()
 
 
@@ -1818,15 +1810,15 @@ descDict = {
 def findDescInEnv(name, env):
     try:
         (record, field) = name.split(".")
-    except:
+    except Exception:
         return ""
     try:
         descField = descDict[field]
-    except:
+    except Exception:
         return ""
     try:
         desc = env[record + "." + descField]
-    except:
+    except Exception:
         return ""
     if desc[2] == "" or desc[2].isspace():
         return ""
@@ -1839,32 +1831,31 @@ def getDescFromEnv(data):
             for p in d.p:
                 if not p.desc:
                     p.desc = findDescInEnv(p.name, data[0])
-            for d in d.d:
-                if not d.desc:
-                    d.desc = findDescInEnv(d.name, data[0])
+            for inner_d in d.d:
+                if not inner_d.desc:
+                    inner_d.desc = findDescInEnv(d.name, data[0])
 
 
 ########################
 # opMDA and related code
 ########################
 def isScan(d):
-    if type(d) != type([]):
+    if not isinstance(d, list):
         return 0
-    if type(d[0]) != type({}):
+    if not isinstance(d[0], dict):
         return 0
-    if "rank" not in d[0].keys():
+    if "rank" not in d[0]:
         return 0
     if len(d) < 2:
         return 0
-    if type(d[1]) != type(scanDim()):
+    if not isinstance(d[1], scanDim):
         return 0
     return 1
 
 
 def isScalar(d):
-    if (type(d) == type(1)) or (type(d) == type(1.0)):
-        return 1
-    return 0
+    return isinstance(d, int|float)
+
 
 
 def add(a, b):
@@ -1921,7 +1912,7 @@ def opMDA_usage():
 
 def opMDA_scalar(op, d1, scalar):
     op = setOp(op)
-    if op == None:
+    if op is None:
         opMDA_usage()
         return None
 
@@ -1989,7 +1980,7 @@ def opMDA(op, d1, d2):
         return None
 
     op = setOp(op)
-    if op == None:
+    if op is None:
         opMDA_usage()
         return None
 
@@ -2088,6 +2079,7 @@ def main():
         verbose = int(sys.argv[3])
 
     dim = readMDA(fname, maxdim, verbose, 0)
+    return dim
 
 
 if __name__ == "__main__":
