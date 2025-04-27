@@ -2128,9 +2128,10 @@ def main():
 
     maxdim = 4
     verbose = 0
-    if len(sys.argv) > 1:
-        maxdim = int(sys.argv[2])
+    print(sys.argv)
     if len(sys.argv) > 2:
+        maxdim = int(sys.argv[2])
+    if len(sys.argv) > 3:
         verbose = int(sys.argv[3])
 
     dim = readMDA(fname, maxdim, verbose, 0)
