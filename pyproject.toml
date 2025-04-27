@@ -133,7 +133,10 @@ extend-ignore = [
   "PLR",    # Design related pylint codes
   "E501",   # Line too long, trust the formatter to get it right
   "ISC001", # implicit concat, can be handy
+
   # QA for wrong opinions
+  "E741",   # allow l as variable name
+  "ICN001", # allow verbose numpy
   "RET504", # can use a 'redundent' local if you want
   "RET505", # return in else (clearer with the `else`)
   "SIM105", # contextlib.suppress rather than try...except (just use language)
@@ -145,6 +148,12 @@ extend-ignore = [
   "PD901",  # df is a fine variable name
   "EM102",  # use an fstring in an exception if you want
   "EM101",  # use strings in exceptions if you want
+  "T20",    # Removes print statements
+  "UP031",  # % formats are fine
+  "PTH113",
+  "SIM114",
+  "SIM115",
+  "SIM102"
 ]
 unfixable = [
   "T20",  # Removes print statements
