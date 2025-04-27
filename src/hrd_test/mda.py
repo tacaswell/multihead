@@ -1504,8 +1504,6 @@ def writeMDA(dim, fname=None):
                         m.scan.inner[i].inner[j].pLowerScansBuf = p.get_buffer()
 
     # Write
-    if fname == None:
-        fname = tkFileDialog.SaveAs().show()
     f = open(fname, "wb")
 
     f.write(m.header)
