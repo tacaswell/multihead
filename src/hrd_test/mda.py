@@ -1653,27 +1653,27 @@ def writeAscii(d, fname=None):
 
 ################################################################################
 # misc
-def showEnv(dict, all=0):
-    if type(dict) == type([]) and type(dict[0]) == type({}):
-        dict = dict[0]
-    fieldLen = 0
-    for k in dict.keys():
-        if len(k) > fieldLen:
-            fieldLen = len(k)
-    format = "%%-%-ds %%s" % fieldLen
-    for k in dict.keys():
-        if not (k in dict["ourKeys"]):
-            if type(dict[k]) == type((1, 2, 3)):
-                value = dict[k][2]
-            else:
-                value = dict[k]
-            if type(value) == type([]) and len(value) == 1:
-                value = value[0]
-            if all:
-                print(format % (k, dict[k]))
-            else:
-                print(format % (k, value))
-    return
+# def showEnv(dict, all=0):
+#     if type(dict) == type([]) and type(dict[0]) == type({}):
+#         dict = dict[0]
+#     fieldLen = 0
+#     for k in dict:
+#         if len(k) > fieldLen:
+#             fieldLen = len(k)
+#     format = "%%-%-ds %%s" % fieldLen
+#     for k in dict:
+#         if not (k in dict["ourKeys"]):
+#             if type(dict[k]) == type((1, 2, 3)):
+#                 value = dict[k][2]
+#             else:
+#                 value = dict[k]
+#             if type(value) == type([]) and len(value) == 1:
+#                 value = value[0]
+#             if all:
+#                 print(format % (k, dict[k]))
+#             else:
+#                 print(format % (k, value))
+#     return
 
 
 def fixMDA(d):
