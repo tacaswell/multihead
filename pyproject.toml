@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Code to work with example data from APS to prep for HRD"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -20,9 +20,6 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
@@ -92,7 +89,7 @@ report.exclude_also = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.9"
+python_version = "3.12"
 warn_unused_configs = true
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
@@ -132,11 +129,28 @@ extend-select = [
   "UP",       # pyupgrade
   "YTT",      # flake8-2020
 ]
-ignore = [
-  "PLR09",    # Too many <...>
-  "PLR2004",  # Magic value used in comparison
-  "ISC001",   # Conflicts with formatter
+extend-ignore = [
+  "PLR",    # Design related pylint codes
+  "E501",   # Line too long, trust the formatter to get it right
+  "ISC001", # implicit concat, can be handy
+  # QA for wrong opinions
+  "RET504", # can use a 'redundent' local if you want
+  "RET505", # return in else (clearer with the `else`)
+  "SIM105", # contextlib.suppress rather than try...except (just use language)
+  "SIM108", # ternaries are not actually clearer (just fewer lines)
+  "PTH123", # Path.open vs open (using the builtin is fine)
+  "PIE804", # creating dict to ** it is fine
+  "C408",   # using dict() is fine
+  "NPY002", # allow the old numpy random generator
+  "PD901",  # df is a fine variable name
+  "EM102",  # use an fstring in an exception if you want
+  "EM101",  # use strings in exceptions if you want
 ]
+unfixable = [
+  "T20",  # Removes print statements
+  "F841", # Removes unused variables
+]
+
 isort.required-imports = ["from __future__ import annotations"]
 # Uncomment if using a _compat.typing backport
 # typing-modules = ["hrd_test._compat.typing"]
