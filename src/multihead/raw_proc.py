@@ -1,11 +1,12 @@
-from typing import Any
-
 import numpy as np
+import numpy.typing as npt
 import skimage.measure
 import skimage.morphology
 
 
-def find_crystal_range(photon_mask: Any) -> tuple[Any, slice, slice]:
+def find_crystal_range(
+    photon_mask: npt.ArrayLike,
+) -> tuple[npt.NDArray[np.int_], slice, slice]:
     """
     Find the ROI on the detector that capture the passed photons.
 
@@ -28,11 +29,14 @@ def find_crystal_range(photon_mask: Any) -> tuple[Any, slice, slice]:
         skimage.morphology.isotropic_opening(photon_mask, 5), 10
     )
 
-    def get_main_component(segments):
-        labels = skimage.measure.label(segments)
+    def get_main_component(segments: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
+        labels: npt.NDArray[np.int_] = skimage.measure.label(segments)
         if labels.max() == 0:
             return segments
-        return labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+        ret: npt.NDArray[np.int_] = (
+            labels == np.argmax(np.bincount(labels.flat)[1:]) + 1
+        )
+        return ret
 
     mask = get_main_component(seg_cleaned)
 

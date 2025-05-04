@@ -4,7 +4,7 @@ from typing import Any
 import h5py
 
 
-def rechunk(file_in: str | Path, file_out: str | Path, N: int = 1000):
+def rechunk(file_in: str | Path, file_out: str | Path, N: int = 1000) -> None:
     """
     Re-chunk the main detector array
     """
