@@ -14,7 +14,7 @@ import sys
 
 import numpy
 
-from . import xdrlib as xdr
+from . import _xdrlib as xdr
 
 have_fast_xdr = False
 use_numpy = have_numpy = True
