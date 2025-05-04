@@ -1,9 +1,11 @@
+from typing import Any
+
 import numpy as np
 import skimage.measure
 import skimage.morphology
 
 
-def find_crystal_range(photon_mask):
+def find_crystal_range(photon_mask: Any) -> tuple[Any, slice, slice]:
     """
     Find the ROI on the detector that capture the passed photons.
 
