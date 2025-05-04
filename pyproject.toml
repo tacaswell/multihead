@@ -97,6 +97,15 @@ warn_unreachable = true
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
+exclude = [
+    "mda\\.py$",
+    "_xdrlib\\.py$",
+ ]
+
+disable_error_code = ["import-untyped", "no-untyped-call"]
+
+
+
 [[tool.mypy.overrides]]
 module = "multihead.*"
 disallow_untyped_defs = true
@@ -104,8 +113,10 @@ disallow_incomplete_defs = true
 
 
 [tool.ruff]
+extend-exclude = ["src/multihead/_xdrlib.py"]
 
 [tool.ruff.lint]
+
 extend-select = [
   "ARG",      # flake8-unused-arguments
   "B",        # flake8-bugbear
