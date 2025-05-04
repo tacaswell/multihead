@@ -1,4 +1,4 @@
-# hrd_test
+# multihead
 
 ```{toctree}
 :maxdepth: 2

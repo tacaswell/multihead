@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 
 [project]
-name = "hrd_test"
+name = "multihead"
 authors = [
   { name = "Thomas A Caswell", email = "tcaswell@bnl.gov" },
 ]
@@ -46,15 +46,15 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tacaswell/hrd_test"
-"Bug Tracker" = "https://github.com/tacaswell/hrd_test/issues"
-Discussions = "https://github.com/tacaswell/hrd_test/discussions"
-Changelog = "https://github.com/tacaswell/hrd_test/releases"
+Homepage = "https://github.com/tacaswell/multihead"
+"Bug Tracker" = "https://github.com/tacaswell/multihead/issues"
+Discussions = "https://github.com/tacaswell/multihead/discussions"
+Changelog = "https://github.com/tacaswell/multihead/releases"
 
 
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "src/hrd_test/_version.py"
+build.hooks.vcs.version-file = "src/multihead/_version.py"
 
 [tool.hatch.envs.default]
 features = ["test"]
@@ -63,7 +63,7 @@ scripts.test = "pytest {args}"
 
 [tool.uv]
 dev-dependencies = [
-  "hrd_test[test]",
+  "multihead[test]",
 ]
 
 
@@ -81,7 +81,7 @@ testpaths = [
 
 
 [tool.coverage]
-run.source = ["hrd_test"]
+run.source = ["multihead"]
 report.exclude_also = [
   '\.\.\.',
   'if typing.TYPE_CHECKING:',
@@ -98,7 +98,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [[tool.mypy.overrides]]
-module = "hrd_test.*"
+module = "multihead.*"
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
@@ -162,7 +162,7 @@ unfixable = [
 
 
 # Uncomment if using a _compat.typing backport
-# typing-modules = ["hrd_test._compat.typing"]
+# typing-modules = ["multihead._compat.typing"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]

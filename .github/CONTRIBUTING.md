@@ -71,7 +71,7 @@ pytest
 Use pytest-cov to generate coverage reports:
 
 ```bash
-pytest --cov=hrd_test
+pytest --cov=multihead
 ```
 
 # Building docs

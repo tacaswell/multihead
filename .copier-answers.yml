@@ -6,7 +6,7 @@ email: tcaswell@bnl.gov
 full_name: Thomas A Caswell
 license: BSD
 org: tacaswell
-project_name: hrd_test
+project_name: multihead
 project_short_description: Code to work with example data from APS to prep for HRD
-url: https://github.com/tacaswell/hrd_test
+url: https://github.com/tacaswell/multihead
 vcs: true

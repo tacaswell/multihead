@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import importlib.metadata
 
-import hrd_test as m
+import multihead as m
 
 
 def test_version():
-    assert importlib.metadata.version("hrd_test") == m.__version__
+    assert importlib.metadata.version("multihead") == m.__version__
