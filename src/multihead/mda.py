@@ -131,9 +131,7 @@ class scanDetector:
         else:
             n = 1
             dimString = str(len(data))
-            while (len(data) > 0) and (
-                    isinstance(data[0], list | tuple)
-            ):
+            while (len(data) > 0) and (isinstance(data[0], list | tuple)):
                 data = data[0]
                 n = n + 1
                 dimString = dimString + "x" + str(len(data))
@@ -278,7 +276,7 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
     scan.name = u.unpack_string()
     if verbose:
         out.write("scan.name = %s\n" % (scan.name))
-    timelength = u.unpack_int() # noqa: F841
+    timelength = u.unpack_int()  # noqa: F841
     scan.time = u.unpack_string()
     if verbose:
         out.write("scan.time = %s\n" % (repr(scan.time)))
@@ -436,9 +434,9 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
         else:
             scan.plower_scans = u.unpack_farray(scan.npts, u.unpack_int)
 
-    namelength = u.unpack_int() # noqa: F841
+    namelength = u.unpack_int()  # noqa: F841
     scan.name = u.unpack_string()
-    timelength = u.unpack_int() # noqa: F841
+    timelength = u.unpack_int()  # noqa: F841
     scan.time = u.unpack_string()
 
     scan.np = u.unpack_int()
@@ -985,9 +983,9 @@ def readMDA(
                     if vect[j] == 0:
                         break
                     value = value + chr(vect[i])
-            elif EPICS_type == 29: # DBR_CTRL_SHORT
+            elif EPICS_type == 29:  # DBR_CTRL_SHORT
                 value = u.unpack_farray(count, u.unpack_int)
-            elif EPICS_type == 33: # DBR_CTRL_LONG
+            elif EPICS_type == 33:  # DBR_CTRL_LONG
                 value = u.unpack_farray(count, u.unpack_int)
             elif EPICS_type == 30:  # DBR_CTRL_FLOAT
                 value = u.unpack_farray(count, u.unpack_float)
@@ -1109,7 +1107,7 @@ def skimScan(dataFile):
             scan.plower_scans = u.unpack_farray(scan.npts, u.unpack_int)
     namelength = u.unpack_int()  # noqa: F841
     scan.name = u.unpack_string()
-    timelength = u.unpack_int() # noqa: F841
+    timelength = u.unpack_int()  # noqa: F841
     scan.time = u.unpack_string()
     scan.np = u.unpack_int()
     scan.nd = u.unpack_int()
@@ -1149,7 +1147,7 @@ def skimMDA(fname=None, verbose=False):
     rank = u.unpack_int()
     dimensions = u.unpack_farray(rank, u.unpack_int)
     isRegular = u.unpack_int()
-    pExtra = u.unpack_int() # noqa: F841
+    pExtra = u.unpack_int()  # noqa: F841
     pmain_scan = dataFile.tell() - (len(buf) - u.get_position())
 
     # collect 1D data
@@ -1842,8 +1840,7 @@ def isScan(d):
 
 
 def isScalar(d):
-    return isinstance(d, int|float)
-
+    return isinstance(d, int | float)
 
 
 def add(a, b):
