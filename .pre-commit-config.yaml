@@ -62,6 +62,7 @@ repos:
     rev: "v2.3.0"
     hooks:
       - id: codespell
+        args: ["--skip=src/multihead/mda.py,pixi.lock"]
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: "v0.10.0.1"
