@@ -178,3 +178,10 @@ unfixable = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["T20"]
 "noxfile.py" = ["T20"]
+
+[tool.pylint.main]
+ignore-paths = ["^.*_version.py$", ".*mda.py$", ".*_xdrlib.py", ".*_version.py"]
+ignored-modules = ['h5py']
+
+[tool.pylint."messages control"]
+disable = ["fixme"]
