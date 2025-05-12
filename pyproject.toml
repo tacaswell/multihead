@@ -26,7 +26,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = []
+dependencies = ['scikit-image', 'numpy', "h5py"]
 
 [project.optional-dependencies]
 test = [
