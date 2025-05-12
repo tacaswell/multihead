@@ -1,3 +1,7 @@
+"""
+Functions to read in raw data and extract single detectors.
+"""
+
 from pathlib import Path
 from typing import Any
 

@@ -1,3 +1,7 @@
+"""
+Helpers for processing raw detector images.
+"""
+
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
@@ -22,7 +26,8 @@ def find_crystal_range(
 
     Notes
     -----
-    Adapted from https://discuss.python.org/t/how-can-i-detect-and-crop-the-rectangular-frame-in-the-image/32378/2
+    Adapted from
+    https://discuss.python.org/t/how-can-i-detect-and-crop-the-rectangular-frame-in-the-image/32378/2
     """
 
     seg_cleaned = skimage.morphology.isotropic_closing(
