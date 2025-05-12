@@ -26,6 +26,7 @@ repos:
         args: ["--pytest-test-first"]
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+        exclude: "LICENSES"
 
   - repo: https://github.com/pre-commit/pygrep-hooks
     rev: "v1.10.0"
