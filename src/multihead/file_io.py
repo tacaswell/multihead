@@ -8,7 +8,7 @@ from typing import Any
 import h5py
 
 
-def rechunk(file_in: str | Path, file_out: str | Path, N: int = 1000) -> None:
+def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) -> None:
     """
     Re-chunk the main detector array
     """
@@ -22,14 +22,15 @@ def rechunk(file_in: str | Path, file_out: str | Path, N: int = 1000) -> None:
         dataset = fout.create_dataset(
             dsname,
             shape=read_ds.shape,
-            chunks=(N, 260, 260),
+            chunks=(n_frames, 260, 260),
             compression=32008,
             compression_opts=(block_size, 2),
             dtype=read_ds.dtype,
         )
 
-        for j in range(len(read_ds) // N + 1):
-            dataset[j * N : (j + 1) * N] = read_ds[j * N : (j + 1) * N]
+        for j in range(len(read_ds) // n_frames + 1):
+            slc = slice(j * n_frames, (j + 1) * n_frames)
+            dataset[slc] = read_ds[slc]
 
         # TODO: copy everything else!
 
