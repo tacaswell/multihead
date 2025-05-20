@@ -2,15 +2,25 @@
 Helpers for processing raw detector images.
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
-import skimage.morphology
+from skimage.morphology import isotropic_closing, isotropic_opening
+
+__all__ = ["CrystalROI", "find_crystal_range"]
+
+
+@dataclass
+class CrystalROI:
+    rslc: slice
+    cslc: slice
 
 
 def find_crystal_range(
-    photon_mask: npt.ArrayLike,
-) -> tuple[npt.NDArray[np.int_], slice, slice]:
+    photon_mask: npt.ArrayLike, opening_radius: float = 5, closing_radius: float = 10
+) -> tuple[npt.NDArray[np.int_], CrystalROI]:
     """
     Find the ROI on the detector that capture the passed photons.
 
@@ -21,8 +31,7 @@ def find_crystal_range(
 
     Returns
     -------
-    (slice, slice)
-
+    CrystalROI
 
     Notes
     -----
@@ -30,8 +39,8 @@ def find_crystal_range(
     https://discuss.python.org/t/how-can-i-detect-and-crop-the-rectangular-frame-in-the-image/32378/2
     """
 
-    seg_cleaned = skimage.morphology.isotropic_closing(
-        skimage.morphology.isotropic_opening(photon_mask, 5), 10
+    seg_cleaned = isotropic_closing(
+        isotropic_opening(photon_mask, opening_radius), closing_radius
     )
 
     def get_main_component(segments: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
@@ -51,4 +60,4 @@ def find_crystal_range(
     indices_c = mask_c.nonzero()[0]
     minr, maxr = int(indices_r[0]), int(indices_r[-1])
     minc, maxc = int(indices_c[0]), int(indices_c[-1])
-    return mask, slice(minr, maxr), slice(minc, maxc)
+    return mask, CrystalROI(slice(minr, maxr), slice(minc, maxc))
