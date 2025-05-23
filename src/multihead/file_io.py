@@ -78,10 +78,28 @@ class RawHRPD11BM:
     def get_detector(self, n: int) -> npt.NDArray[np.uint16]:
         return load_det(self._image_file[self._data_path], *self._detector_map[n])
 
-    def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint16]]:
-        sums = {}
-        for d in tqdm.tqdm(range(1, len(self._detector_map) + 1)):
-            sums[d] = self.get_detector(d).sum(axis=0)
+    def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
+        sums: dict[int, npt.NDArray[np.uint64]] = {
+            d + 1: np.zeros((256, 256), dtype=np.uint64)
+            for d in range(len(self._detector_map))
+        }
+        ds = self._image_file[self._data_path]
+        chunks = ds.chunks
+        shape = ds.shape
+        if chunks[1:] == shape[1:]:
+            # inefficient chunking for detector acesss
+            n_frames = 1_000
+            n_blocks = 1 + shape[0] // n_frames
+
+            for j in tqdm.tqdm(range(n_blocks)):
+                block = ds[j * n_frames : (j + 1) * n_frames]
+                for d in range(1, len(self._detector_map) + 1):
+                    sums[d] += block[:, *det_slice(*self._detector_map[d])].sum(axis=0)
+
+        else:
+            # efficient chunking for detector acesss
+            for d in range(1, len(self._detector_map) + 1):
+                sums[d] += self.get_detector(d).sum(axis=0)
         return sums
 
 
