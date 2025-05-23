@@ -70,8 +70,8 @@ class RawHRPD11BM:
             root_p.with_suffix(".mda"),
             root_p.with_suffix(".h5"),
             (
-                (11, 9, 7, 5, 3, 1),
-                (12, 10, 8, 6, 4, 2),
+                (10, 9, 6, 5, 2, 1),
+                (12, 11, 8, 7, 4, 3),
             ),
         )
 
