@@ -161,6 +161,7 @@ extend-ignore = [
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
   "UP031",  # % formats are fine
+  "PLC0105", # reject rules about naming generic types
   "PTH113",
   "SIM114",
   "SIM115",
