@@ -75,3 +75,18 @@ def find_crystal_range(
     minr, maxr = int(indices_r[0]), int(indices_r[-1])
     minc, maxc = int(indices_c[0]), int(indices_c[-1])
     return mask, CrystalROI(SimpleSliceTuple(minr, maxr), SimpleSliceTuple(minc, maxc))
+
+
+def compute_rois(
+    sums: dict[int, npt.NDArray[np.uint16]],
+    th: int = 2,
+    closing_radius: int = 10,
+    opening_radius: int = 10,
+) -> DetectorROIs:
+    out: dict[int, CrystalROI] = {}
+    for det, data in sums.items():
+        _mask, croi = find_crystal_range(
+            data > th, closing_radius=closing_radius, opening_radius=opening_radius
+        )
+        out[det] = croi
+    return DetectorROIs(out)
