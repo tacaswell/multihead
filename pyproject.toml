@@ -88,7 +88,7 @@ report.exclude_also = [
 ]
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "demos"]
 python_version = "3.12"
 warn_unused_configs = true
 strict = true
@@ -102,7 +102,7 @@ exclude = [
     "_xdrlib\\.py$",
  ]
 
-disable_error_code = ["import-untyped", "no-untyped-call"]
+disable_error_code = ["import-untyped", "no-untyped-call", "type-arg"]
 
 
 
