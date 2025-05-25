@@ -64,7 +64,7 @@ class RawHRPD11BM:
                 self._detector_map[det_number] = (k, j)
 
     @classmethod
-    def from_root(cls, root: str) -> Self:
+    def from_root(cls, root: str | Path) -> Self:
         root_p = Path(root)
         return cls(
             root_p.with_suffix(".mda"),
