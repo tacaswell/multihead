@@ -3,19 +3,33 @@ Helpers for processing raw detector images.
 """
 
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
 from skimage.morphology import isotropic_closing, isotropic_opening
 
-__all__ = ["CrystalROI", "find_crystal_range"]
+__all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
+
+
+class SimpleSliceTuple(NamedTuple):
+    start: int
+    stop: int
 
 
 @dataclass
 class CrystalROI:
-    rslc: slice
-    cslc: slice
+    rslc: SimpleSliceTuple
+    cslc: SimpleSliceTuple
+
+    def to_slices(self) -> tuple[slice, slice]:
+        return slice(*self.rslc), slice(*self.cslc)
+
+
+@dataclass
+class DetectorROIs:
+    rois: dict[int, CrystalROI]
 
 
 def find_crystal_range(
@@ -60,4 +74,4 @@ def find_crystal_range(
     indices_c = mask_c.nonzero()[0]
     minr, maxr = int(indices_r[0]), int(indices_r[-1])
     minc, maxc = int(indices_c[0]), int(indices_c[-1])
-    return mask, CrystalROI(slice(minr, maxr), slice(minc, maxc))
+    return mask, CrystalROI(SimpleSliceTuple(minr, maxr), SimpleSliceTuple(minc, maxc))
