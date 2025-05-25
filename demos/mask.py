@@ -204,7 +204,7 @@ def estimate_crystal_offsets(
     iterator = iter(flats.items())
     det, (_, ref) = next(iterator)
     (Npts,) = ref.shape
-    out[det] = cum_offset = 0
+    out[det] = cum_offset = 0.0
 
     for det, (_, I) in iterator:
         offset = np.argmax(np.correlate(ref, I, mode="full")) - Npts
