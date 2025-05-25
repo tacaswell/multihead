@@ -2,7 +2,7 @@
 authors = ["Thomas A Caswell <tcaswell@bnl.gov>"]
 channels = ["conda-forge"]
 name = "Lab6_testdata_share"
-platforms = ["linux-64"]
+platforms = ["linux-64", "win-64", "osx-64"]
 version = "0.1.0"
 
 [tasks]
@@ -15,6 +15,9 @@ h5py = ">=3.13.0,<4"
 hdf5-external-filter-plugins-lz4 = ">=0.1.0,<0.2"
 hdf5-external-filter-plugins-bitshuffle = ">=0.1.0,<0.2"
 scikit-image = ">=0.25.2,<0.26"
+xarray = ">=2025.4.0,<2026"
+tqdm = ">=4.67.1,<5"
+python = ">=3.13"
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }
