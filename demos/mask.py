@@ -1,15 +1,29 @@
 # %%
 from pathlib import Path
-
+from dataclasses import asdict
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Slider
+from matplotlib.widgets import Slider, Button
 
 from multihead.file_io import RawHRPD11BM
-from multihead.raw_proc import CrystalROI, find_crystal_range
+from multihead.raw_proc import (
+    CrystalROI,
+    find_crystal_range,
+    compute_rois,
+    SimpleSliceTuple,
+)
+
+import yaml
+
+
+def sst_representer(dumper: yaml.Dumper, data):
+    return dumper.represent_list(data)
+
+
+yaml.add_representer(SimpleSliceTuple, sst_representer)
 
 # %%
 
@@ -134,14 +148,55 @@ def make_interaction(fig, opening_radius, closing_radius, rects, images):
         state["closing_radius"] = int(val)
         _shared_callback()
 
-    ax_o, ax_c = fig.subplots(1, 2)
+    ax_dict = fig.subplot_mosaic("ac;bd")
+    ax_c = ax_dict["a"]
+    ax_o = ax_dict["b"]
 
-    s1 = Slider(ax_c, "closing radius", 1, 25, valinit=closing_radius, valstep=1)
-    s2 = Slider(ax_o, "opening_radius", 1, 25, valinit=opening_radius, valstep=1)
-    s1.on_changed(_update_closing)
-    s2.on_changed(_update_opening)
+    closing_slider = Slider(
+        ax_c, "closing radius", 1, 25, valinit=closing_radius, valstep=1
+    )
+    opening_slider = Slider(
+        ax_o, "opening_radius", 1, 25, valinit=opening_radius, valstep=1
+    )
+    closing_slider.on_changed(_update_closing)
+    opening_slider.on_changed(_update_opening)
 
-    return s2, s1
+    th_slider = Slider(
+        ax_dict["c"],
+        "threshold",
+        min(thresholds),
+        max(thresholds),
+        valinit=2,
+        valstep=thresholds,
+    )
+
+    b = Button(
+        ax_dict["d"],
+        "Save",
+        color="xkcd:bubble gum pink",
+        hovercolor="xkcd:carnation pink",
+    )
+
+    def _on_save(event):
+        res = compute_rois(
+            sums,
+            th=th_slider.val,
+            closing_radius=closing_slider.val,
+            opening_radius=opening_slider.val,
+        )
+        print(res)
+        print(asdict(res))
+        roi_root = calib_root / "rois"
+        roi_root.mkdir(exist_ok=True, parents=True)
+
+        with open((roi_root / f).with_suffix(".yaml"), "w") as fout:
+            yaml.dump(asdict(res), fout)
+        print(f"wrote to {fout=}")
+        print(yaml.dump(asdict(res)))
+
+    b.on_clicked(_on_save)
+
+    return opening_slider, closing_slider, th_slider, b
 
 
 figs, rects, images = make_figure(data_fig, sums, opening_radius, closing_radius)
