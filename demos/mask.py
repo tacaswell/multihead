@@ -8,6 +8,7 @@ from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
 
+import multihead
 from multihead.file_io import RawHRPD11BM
 from multihead.raw_proc import (
     CrystalROI,
@@ -178,21 +179,28 @@ def make_interaction(fig, opening_radius, closing_radius, rects, images):
     )
 
     def _on_save(event):
-        res = compute_rois(
-            sums,
-            th=th_slider.val,
-            closing_radius=closing_slider.val,
-            opening_radius=opening_slider.val,
+        compute_kwargs = dict(
+            th=int(th_slider.val),
+            closing_radius=int(closing_slider.val),
+            opening_radius=int(opening_slider.val),
         )
+        res = compute_rois(sums, **compute_kwargs)
         print(res)
         print(asdict(res))
         roi_root = calib_root / "rois"
         roi_root.mkdir(exist_ok=True, parents=True)
-
+        dump_data = {
+            **asdict(res),
+            "settings": compute_kwargs,
+            "software": {
+                "func": f"{compute_rois.__module__}.{compute_rois.__qualname__}",
+                "version": multihead.__version__,
+            },
+        }
         with open((roi_root / f).with_suffix(".yaml"), "w") as fout:
-            yaml.dump(asdict(res), fout)
+            yaml.dump(dump_data, fout)
         print(f"wrote to {fout=}")
-        print(yaml.dump(asdict(res)))
+        print(yaml.dump(dump_data))
 
     b.on_clicked(_on_save)
 
