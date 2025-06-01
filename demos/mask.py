@@ -52,9 +52,9 @@ thresholds = [0, 1, 2, 3, 5]
 def make_figure(
     fig: Figure,
     sums: Mapping[int, npt.NDArray[np.uint64]],
+    thresholds: list[int],
     opening_radius: int,
     closing_radius: int,
-    thresholds: list[int],
 ) -> tuple[
     list[SubFigure],
     dict[tuple[int, int], Rectangle],
@@ -150,11 +150,12 @@ def update_masks(
 
 def make_interaction(
     fig: Figure,
+    sums: Mapping[int, npt.NDArray[np.uint64]],
+    thresholds: list[int],
     opening_radius: int,
     closing_radius: int,
     rects: dict[tuple[int, int], Rectangle],
     images: dict[tuple[int, int], AxesImage],
-    thresholds: list[int],
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
@@ -242,10 +243,10 @@ def main():
     data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
     figs, rects, images = make_figure(
-        data_fig, sums, opening_radius, closing_radius, thresholds
+        data_fig, sums, thresholds, opening_radius, closing_radius
     )
-    keep_alive = make_interaction(
-        input_fig, opening_radius, closing_radius, rects, images, thresholds
+    _keep_alive = make_interaction(
+        input_fig, sums, thresholds, opening_radius, closing_radius, rects, images
     )
 
     plt.show()
