@@ -12,7 +12,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, Slider
 
 from multihead.cli import get_base_parser
-from multihead.file_io import RawHRPD11BM
+from multihead.file_io import RawHRPD11BM, PathInfo
 from multihead.raw_proc import (
     CrystalROI,
     compute_rois,
@@ -230,20 +230,16 @@ def parse_args():
 
 def main():
     args = parse_args()
-    root = args.root
-    f = args.filename
+    paths = PathInfo.from_args(args)
     opening_radius = args.opening_radius
     closing_radius = args.closing_radius
     thresholds = args.thresholds
 
-    data_root = root / "data"
-    calib_root = root / "calib"
-
-    t = RawHRPD11BM.from_root(data_root / f)
+    t = RawHRPD11BM.from_root(paths.data_root / paths.filename)
     sums = t.get_detector_sums()
 
     fig = plt.figure(figsize=(15, 9), layout="compressed")
-    fig.suptitle(f"{f}")
+    fig.suptitle(f"{paths.filename}")
     data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
     figs, rects, images = make_figure(
@@ -257,8 +253,8 @@ def main():
         closing_radius,
         rects,
         images,
-        f,
-        calib_root,
+        paths.filename,
+        paths.calib_root,
     )
 
     plt.show()

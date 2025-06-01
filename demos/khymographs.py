@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
-from multihead.file_io import RawHRPD11BM
+from multihead.file_io import RawHRPD11BM, PathInfo
 from multihead.raw_proc import compute_rois, CrystalROI
 from multihead.cli import get_base_parser
 
@@ -109,9 +109,10 @@ def parse_args():
 
 def main():
     args = parse_args()
+    paths = PathInfo.from_args(args)
 
     # Initialize the RawHRPD11BM instance with command line arguments
-    t = RawHRPD11BM.from_root(args.root / args.filename)
+    t = RawHRPD11BM.from_root(paths.data_root / paths.filename)
     sums = t.get_detector_sums()
 
     rois2 = compute_rois(sums)

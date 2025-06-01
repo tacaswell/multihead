@@ -15,6 +15,29 @@ from multihead import mda
 
 
 @dataclass
+class PathInfo:
+    """Container for paths used in the mask processing."""
+    root: Path
+    filename: str
+    data_root: Path
+    calib_root: Path
+
+    @classmethod
+    def from_root_and_file(cls, root: Path, filename: str) -> Self:
+        """Create PathInfo from root path and filename."""
+        return cls(
+            root=root,
+            filename=filename,
+            data_root=root / "data",
+            calib_root=root / "calib"
+        )
+
+    @classmethod
+    def from_args(cls, args) -> Self:
+        """Create PathInfo from parsed command line arguments."""
+        return cls.from_root_and_file(args.root, args.filename)
+
+@dataclass
 class ConfigEntry:
     unit: str = field(repr=False)
     value: Any
