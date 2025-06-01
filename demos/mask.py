@@ -1,7 +1,8 @@
 # %%
+from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
-from typing import Mapping, cast
+from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -106,7 +107,7 @@ def make_figure(
         va="center",
         ha="center",
     )
-    for ax, th in zip(text_axes[1:], thresholds):
+    for ax, th in zip(text_axes[1:], thresholds, strict=True):
         ax.annotate(
             f"{th=}",
             (0.5, 0.5),
