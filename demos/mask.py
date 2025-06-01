@@ -31,18 +31,6 @@ yaml.add_representer(SimpleSliceTuple, sst_representer)
 
 # %%
 
-root = Path("/mnt/scratch/hrd/data_cache/Lab6_testdata_share")
-data_root = root / "data"
-calib_root = root / "calib"
-
-# f = "test_04_15_2025_0009"
-# f = "LaB6_WoSlits_04_30_0000"
-f = "AL2O3_WoSlits_04_30_0000"
-
-
-opening_radius = 7
-closing_radius = 15
-thresholds = [0, 1, 2, 3, 5]
 
 # %%
 
@@ -156,6 +144,8 @@ def make_interaction(
     closing_radius: int,
     rects: dict[tuple[int, int], Rectangle],
     images: dict[tuple[int, int], AxesImage],
+    f: str,
+    calib_root: Path,
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
@@ -235,6 +225,18 @@ def make_interaction(
 
 
 def main():
+    root = Path("/mnt/scratch/hrd/data_cache/Lab6_testdata_share")
+    data_root = root / "data"
+    calib_root = root / "calib"
+
+    # f = "test_04_15_2025_0009"
+    # f = "LaB6_WoSlits_04_30_0000"
+    f = "AL2O3_WoSlits_04_30_0000"
+
+    opening_radius = 7
+    closing_radius = 15
+    thresholds = [0, 1, 2, 3, 5]
+
     t = RawHRPD11BM.from_root(data_root / f)
     sums = t.get_detector_sums()
 
@@ -246,7 +248,15 @@ def main():
         data_fig, sums, thresholds, opening_radius, closing_radius
     )
     _keep_alive = make_interaction(
-        input_fig, sums, thresholds, opening_radius, closing_radius, rects, images
+        input_fig,
+        sums,
+        thresholds,
+        opening_radius,
+        closing_radius,
+        rects,
+        images,
+        f,
+        calib_root,
     )
 
     plt.show()
