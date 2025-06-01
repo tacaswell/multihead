@@ -193,21 +193,11 @@ def make_interaction(
         )
         res = compute_rois(sums, **compute_kwargs)
         print(res)
-        print(asdict(res))
         roi_root = calib_root / "rois"
         roi_root.mkdir(exist_ok=True, parents=True)
-        dump_data = {
-            **asdict(res),
-            "settings": compute_kwargs,
-            "software": {
-                "func": f"{compute_rois.__module__}.{compute_rois.__qualname__}",
-                "version": multihead.__version__,
-            },
-        }
-        with open((roi_root / f).with_suffix(".yaml"), "w") as fout:
-            yaml.dump(dump_data, fout)
-        print(f"wrote to {fout=}")
-        print(yaml.dump(dump_data))
+        with open(roi_root / f"{f}.yaml", "w") as stream:
+            res.to_yaml(stream)
+        print(f"wrote to {roi_root / f}.yaml")
 
     b.on_clicked(_on_save)
 
