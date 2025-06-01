@@ -1,4 +1,5 @@
 # %%
+import argparse
 from collections.abc import Mapping
 from dataclasses import asdict
 from pathlib import Path
@@ -224,18 +225,52 @@ def make_interaction(
 # %%
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Process and visualize crystal masks")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path.cwd(),
+        help="Root directory for data",
+    )
+    parser.add_argument(
+        "-f",
+        "--filename",
+        type=str,
+        help="Input filename",
+    )
+    parser.add_argument(
+        "--opening-radius",
+        type=int,
+        default=7,
+        help="Opening radius for mask processing",
+    )
+    parser.add_argument(
+        "--closing-radius",
+        type=int,
+        default=15,
+        help="Closing radius for mask processing",
+    )
+    parser.add_argument(
+        "--thresholds",
+        type=int,
+        nargs="+",
+        default=[0, 1, 2, 3, 5],
+        help="List of threshold values",
+    )
+    return parser.parse_args()
+
+
 def main():
-    root = Path("/mnt/scratch/hrd/data_cache/Lab6_testdata_share")
+    args = parse_args()
+    root = args.root
+    f = args.filename
+    opening_radius = args.opening_radius
+    closing_radius = args.closing_radius
+    thresholds = args.thresholds
+
     data_root = root / "data"
     calib_root = root / "calib"
-
-    # f = "test_04_15_2025_0009"
-    # f = "LaB6_WoSlits_04_30_0000"
-    f = "AL2O3_WoSlits_04_30_0000"
-
-    opening_radius = 7
-    closing_radius = 15
-    thresholds = [0, 1, 2, 3, 5]
 
     t = RawHRPD11BM.from_root(data_root / f)
     sums = t.get_detector_sums()
