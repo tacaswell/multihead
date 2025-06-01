@@ -8,7 +8,7 @@ from matplotlib.figure import Figure, SubFigure
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
-from typing import cast
+from typing import cast, Mapping
 
 import multihead
 from multihead.file_io import RawHRPD11BM
@@ -57,7 +57,7 @@ data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
 def make_figure(
     fig: Figure,
-    sums: dict[int, npt.NDArray[np.uint64]],
+    sums: Mapping[int, npt.NDArray[np.uint64]],
     opening_radius: int,
     closing_radius: int,
 ) -> tuple[
@@ -115,7 +115,14 @@ def make_figure(
     return figs, images, rects
 
 
-def compute_masks_rois(sums, opening_radius, closing_radius):
+def compute_masks_rois(
+    sums: Mapping[int, npt.NDArray[np.integer]],
+    opening_radius: int,
+    closing_radius: int,
+) -> tuple[
+    dict[tuple[int, int], npt.NDArray[np.integer]],
+    dict[tuple[int, int], CrystalROI],
+]:
     masks: dict[tuple[int, int], npt.NDArray[np.integer]] = {}
     rois: dict[tuple[int, int], CrystalROI] = {}
     for k, v in sums.items():

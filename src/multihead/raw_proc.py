@@ -3,7 +3,7 @@ Helpers for processing raw detector images.
 """
 
 from dataclasses import dataclass
-from typing import NamedTuple
+from typing import NamedTuple, Mapping
 
 import numpy as np
 import numpy.typing as npt
@@ -78,7 +78,7 @@ def find_crystal_range(
 
 
 def compute_rois(
-    sums: dict[int, npt.NDArray[np.uint16]],
+    sums: Mapping[int, npt.NDArray[np.integer]],
     th: int = 2,
     closing_radius: int = 10,
     opening_radius: int = 10,
