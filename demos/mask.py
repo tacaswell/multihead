@@ -39,22 +39,14 @@ calib_root = root / "calib"
 # f = "LaB6_WoSlits_04_30_0000"
 f = "AL2O3_WoSlits_04_30_0000"
 
-t = RawHRPD11BM.from_root(data_root / f)
 
 opening_radius = 7
 closing_radius = 15
 thresholds = [0, 1, 2, 3, 5]
 
 # %%
-sums = t.get_detector_sums()
+
 # %%
-
-
-rois = {}
-
-fig = plt.figure(figsize=(15, 9), layout="compressed")
-fig.suptitle(f"{f}")
-data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
 
 def make_figure(
@@ -96,8 +88,6 @@ def make_figure(
                 )
             )
             ax.axis("off")
-
-            rois[(k, th)] = croi
 
     text_axes = figs[0].subplots(len(thresholds) + 1, sharex=True, sharey=True)
     [ax.axis("off") for ax in text_axes]
@@ -240,12 +230,26 @@ def make_interaction(
     return opening_slider, closing_slider, th_slider, b
 
 
-figs, rects, images = make_figure(
-    data_fig, sums, opening_radius, closing_radius, thresholds
-)
-keep_alive = make_interaction(
-    input_fig, opening_radius, closing_radius, rects, images, thresholds
-)
-
 # %%
-plt.show()
+
+
+def main():
+    t = RawHRPD11BM.from_root(data_root / f)
+    sums = t.get_detector_sums()
+
+    fig = plt.figure(figsize=(15, 9), layout="compressed")
+    fig.suptitle(f"{f}")
+    data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
+
+    figs, rects, images = make_figure(
+        data_fig, sums, opening_radius, closing_radius, thresholds
+    )
+    keep_alive = make_interaction(
+        input_fig, opening_radius, closing_radius, rects, images, thresholds
+    )
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
