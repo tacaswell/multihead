@@ -12,12 +12,9 @@ from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, Slider
 
 from multihead.cli import get_base_parser
-from multihead.file_io import RawHRPD11BM, PathInfo
-from multihead.raw_proc import (
-    CrystalROI,
-    compute_rois,
-    find_crystal_range,
-)
+from multihead.config import CrystalROI
+from multihead.file_io import PathInfo, RawHRPD11BM
+from multihead.raw_proc import compute_rois, find_crystal_range
 
 # %%
 

@@ -2,12 +2,8 @@ import io
 
 import numpy as np
 
-from multihead.raw_proc import (
-    CrystalROI,
-    DetectorROIs,
-    SimpleSliceTuple,
-    compute_rois,
-)
+from multihead.config import CrystalROI, SimpleSliceTuple
+from multihead.raw_proc import DetectorROIs, compute_rois
 
 
 def test_roi_yaml_roundtrip():

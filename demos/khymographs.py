@@ -2,9 +2,10 @@ from typing import cast
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from multihead.config import CrystalROI
+from multihead.raw_proc import compute_rois
 
 from multihead.file_io import RawHRPD11BM, PathInfo
-from multihead.raw_proc import compute_rois, CrystalROI
 from multihead.cli import get_base_parser
 
 
@@ -136,8 +137,6 @@ def main():
     plt.show()
 
 
-if __name__ == "__main__":
-    main()
 
 def estimate_crystal_offsets_ref(
     raw: RawHRPD11BM,
@@ -182,3 +181,6 @@ def estimate_crystal_offsets(
         ref = I
 
     return out
+
+if __name__ == "__main__":
+    main()

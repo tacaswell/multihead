@@ -4,7 +4,6 @@ Helpers for processing raw detector images.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -12,21 +11,9 @@ import skimage.measure
 import yaml
 from skimage.morphology import isotropic_closing, isotropic_opening
 
-__all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
+from .config import CrystalROI, SimpleSliceTuple
 
-
-class SimpleSliceTuple(NamedTuple):
-    start: int
-    stop: int
-
-
-@dataclass
-class CrystalROI:
-    rslc: SimpleSliceTuple
-    cslc: SimpleSliceTuple
-
-    def to_slices(self) -> tuple[slice, slice]:
-        return slice(*self.rslc), slice(*self.cslc)
+__all__ = ["DetectorROIs", "compute_rois", "find_crystal_range"]
 
 
 @dataclass
