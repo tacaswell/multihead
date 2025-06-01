@@ -12,7 +12,6 @@ import skimage.measure
 import yaml
 from skimage.morphology import isotropic_closing, isotropic_opening
 
-
 __all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
 
 
@@ -33,10 +32,14 @@ class CrystalROI:
 @dataclass
 class DetectorROIs:
     rois: dict[int, CrystalROI]
+    software: dict[str, str]
+    parameters: dict[str, int]
 
     def to_yaml(self, stream):
         """Write the DetectorROIs to a YAML file."""
         data = {
+            "software": self.software,
+            "parameters": self.parameters,
             "rois": [
                 {
                     "detector_number": k,
@@ -61,7 +64,11 @@ class DetectorROIs:
                 SimpleSliceTuple(*v["rslc"]),
                 SimpleSliceTuple(*v["cslc"])
             )
-        return cls(rois)
+        return cls(
+            rois=rois,
+            software=data.get("software", {}),
+            parameters=data.get("parameters", {})
+        )
 
 
 def find_crystal_range(
@@ -115,10 +122,21 @@ def compute_rois(
     closing_radius: int = 10,
     opening_radius: int = 10,
 ) -> DetectorROIs:
+    import multihead
+
     out: dict[int, CrystalROI] = {}
     for det, data in sums.items():
         _mask, croi = find_crystal_range(
             data > th, closing_radius=closing_radius, opening_radius=opening_radius
         )
         out[det] = croi
-    return DetectorROIs(out)
+    return DetectorROIs(
+        rois=out,
+        software={
+            "name": "multihead",
+            "version": multihead.__version__,
+            "function": "compute_rois",
+            "module": "multihead.raw_proc"
+        },
+        parameters={"threshold": th, "closing_radius": closing_radius, "opening_radius": opening_radius}
+    )
