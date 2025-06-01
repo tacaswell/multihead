@@ -1,25 +1,25 @@
 # %%
-from pathlib import Path
 from dataclasses import asdict
+from pathlib import Path
+from typing import Mapping, cast
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import yaml
 from matplotlib.figure import Figure, SubFigure
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
-from matplotlib.widgets import Slider, Button
-from typing import cast, Mapping
+from matplotlib.widgets import Button, Slider
 
 import multihead
 from multihead.file_io import RawHRPD11BM
 from multihead.raw_proc import (
     CrystalROI,
-    find_crystal_range,
-    compute_rois,
     SimpleSliceTuple,
+    compute_rois,
+    find_crystal_range,
 )
-
-import yaml
 
 
 def sst_representer(dumper: yaml.Dumper, data):
@@ -62,10 +62,13 @@ def make_figure(
     closing_radius: int,
 ) -> tuple[
     list[SubFigure],
-    dict[tuple[int, int], AxesImage],
     dict[tuple[int, int], Rectangle],
+    dict[tuple[int, int], AxesImage],
 ]:
-    figs = cast(list[SubFigure], fig.subfigures(1, len(sums) + 1, width_ratios=(0.5,) + (1,) * len(sums)))
+    figs = cast(
+        list[SubFigure],
+        fig.subfigures(1, len(sums) + 1, width_ratios=(0.5,) + (1,) * len(sums)),
+    )
     images: dict[tuple[int, int], AxesImage] = {}
     rects: dict[tuple[int, int], Rectangle] = {}
     for sfig, (k, v) in zip(figs[1:], sums.items(), strict=True):
@@ -112,7 +115,7 @@ def make_figure(
             va="center",
             ha="center",
         )
-    return figs, images, rects
+    return figs, rects, images
 
 
 def compute_masks_rois(
@@ -151,11 +154,17 @@ def update_masks(
         rect.set_height(croi.rslc.stop - croi.rslc.start)
 
 
-def make_interaction(fig, opening_radius, closing_radius, rects, images):
+def make_interaction(
+    fig: Figure,
+    opening_radius: int,
+    closing_radius: int,
+    rects: dict[tuple[int, int], Rectangle],
+    images: dict[tuple[int, int], AxesImage],
+) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
     def _shared_callback():
-        update_masks(rects, images, *compute_masks_rois(sums, **state))
+        update_masks(images, rects, *compute_masks_rois(sums, **state))
         fig.canvas.draw_idle()
 
     def _update_opening(val):
@@ -195,7 +204,7 @@ def make_interaction(fig, opening_radius, closing_radius, rects, images):
         hovercolor="xkcd:carnation pink",
     )
 
-    def _on_save(event):
+    def _on_save(event):  # noqa: ARG001
         compute_kwargs = dict(
             th=int(th_slider.val),
             closing_radius=int(closing_slider.val),
