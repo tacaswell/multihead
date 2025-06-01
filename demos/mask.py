@@ -211,3 +211,4 @@ figs, rects, images = make_figure(data_fig, sums, opening_radius, closing_radius
 keep_alive = make_interaction(input_fig, opening_radius, closing_radius, rects, images)
 
 # %%
+plt.show()
