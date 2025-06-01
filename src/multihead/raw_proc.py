@@ -13,19 +13,12 @@ import yaml
 from skimage.morphology import isotropic_closing, isotropic_opening
 
 
-def sst_representer(dumper: yaml.Dumper, data):
-    return dumper.represent_list(data)
-
-
 __all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
 
 
 class SimpleSliceTuple(NamedTuple):
     start: int
     stop: int
-
-
-yaml.add_representer(SimpleSliceTuple, sst_representer)
 
 
 @dataclass
@@ -40,6 +33,35 @@ class CrystalROI:
 @dataclass
 class DetectorROIs:
     rois: dict[int, CrystalROI]
+
+    def to_yaml(self, stream):
+        """Write the DetectorROIs to a YAML file."""
+        data = {
+            "rois": [
+                {
+                    "detector_number": k,
+                    "roi_bounds": {
+                        "rslc": list(v.rslc),
+                        "cslc": list(v.cslc)
+                    }
+                } for k, v in self.rois.items()
+            ]
+        }
+        yaml.dump(data, stream)
+
+    @classmethod
+    def from_yaml(cls, stream) -> "DetectorROIs":
+        """Read DetectorROIs from a YAML file."""
+        data = yaml.safe_load(stream)
+        rois = {}
+        for entry in data["rois"]:
+            k = entry["detector_number"]
+            v = entry["roi_bounds"]
+            rois[int(k)] = CrystalROI(
+                SimpleSliceTuple(*v["rslc"]),
+                SimpleSliceTuple(*v["cslc"])
+            )
+        return cls(rois)
 
 
 def find_crystal_range(
