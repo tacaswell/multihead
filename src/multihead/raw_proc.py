@@ -2,13 +2,20 @@
 Helpers for processing raw detector images.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import NamedTuple, Mapping
+from typing import NamedTuple
 
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
+import yaml
 from skimage.morphology import isotropic_closing, isotropic_opening
+
+
+def sst_representer(dumper: yaml.Dumper, data):
+    return dumper.represent_list(data)
+
 
 __all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
 
@@ -16,6 +23,9 @@ __all__ = ["CrystalROI", "DetectorROIs", "find_crystal_range"]
 class SimpleSliceTuple(NamedTuple):
     start: int
     stop: int
+
+
+yaml.add_representer(SimpleSliceTuple, sst_representer)
 
 
 @dataclass

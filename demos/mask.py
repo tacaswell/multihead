@@ -18,17 +18,9 @@ import multihead
 from multihead.file_io import RawHRPD11BM
 from multihead.raw_proc import (
     CrystalROI,
-    SimpleSliceTuple,
     compute_rois,
     find_crystal_range,
 )
-
-
-def sst_representer(dumper: yaml.Dumper, data):
-    return dumper.represent_list(data)
-
-
-yaml.add_representer(SimpleSliceTuple, sst_representer)
 
 # %%
 
