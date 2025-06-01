@@ -4,9 +4,11 @@ from dataclasses import asdict
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+from matplotlib.figure import Figure, SubFigure
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
+from typing import cast
 
 import multihead
 from multihead.file_io import RawHRPD11BM
@@ -53,8 +55,17 @@ fig.suptitle(f"{f}")
 data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
 
-def make_figure(fig, sums, opening_radius, closing_radius):
-    figs = fig.subfigures(1, len(sums) + 1, width_ratios=(0.5,) + (1,) * len(sums))
+def make_figure(
+    fig: Figure,
+    sums: dict[int, npt.NDArray[np.uint64]],
+    opening_radius: int,
+    closing_radius: int,
+) -> tuple[
+    list[SubFigure],
+    dict[tuple[int, int], AxesImage],
+    dict[tuple[int, int], Rectangle],
+]:
+    figs = cast(list[SubFigure], fig.subfigures(1, len(sums) + 1, width_ratios=(0.5,) + (1,) * len(sums)))
     images: dict[tuple[int, int], AxesImage] = {}
     rects: dict[tuple[int, int], Rectangle] = {}
     for sfig, (k, v) in zip(figs[1:], sums.items(), strict=True):
@@ -79,8 +90,7 @@ def make_figure(fig, sums, opening_radius, closing_radius):
                 )
             )
             ax.axis("off")
-            if sfig is figs[0]:
-                txt.set_in_layout(False)
+
             rois[(k, th)] = croi
 
     text_axes = figs[0].subplots(len(thresholds) + 1, sharex=True, sharey=True)
