@@ -61,6 +61,7 @@ def make_figure(
     sums: Mapping[int, npt.NDArray[np.uint64]],
     opening_radius: int,
     closing_radius: int,
+    thresholds: list[int],
 ) -> tuple[
     list[SubFigure],
     dict[tuple[int, int], Rectangle],
@@ -123,6 +124,7 @@ def compute_masks_rois(
     sums: Mapping[int, npt.NDArray[np.integer]],
     opening_radius: int,
     closing_radius: int,
+    thresholds: list[int],
 ) -> tuple[
     dict[tuple[int, int], npt.NDArray[np.integer]],
     dict[tuple[int, int], CrystalROI],
@@ -161,11 +163,14 @@ def make_interaction(
     closing_radius: int,
     rects: dict[tuple[int, int], Rectangle],
     images: dict[tuple[int, int], AxesImage],
+    thresholds: list[int],
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
     def _shared_callback():
-        update_masks(images, rects, *compute_masks_rois(sums, **state))
+        update_masks(
+            images, rects, *compute_masks_rois(sums, **state, thresholds=thresholds)
+        )
         fig.canvas.draw_idle()
 
     def _update_opening(val):
@@ -234,8 +239,12 @@ def make_interaction(
     return opening_slider, closing_slider, th_slider, b
 
 
-figs, rects, images = make_figure(data_fig, sums, opening_radius, closing_radius)
-keep_alive = make_interaction(input_fig, opening_radius, closing_radius, rects, images)
+figs, rects, images = make_figure(
+    data_fig, sums, opening_radius, closing_radius, thresholds
+)
+keep_alive = make_interaction(
+    input_fig, opening_radius, closing_radius, rects, images, thresholds
+)
 
 # %%
 plt.show()
