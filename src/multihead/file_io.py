@@ -2,6 +2,7 @@
 Functions to read in raw data and extract single detectors.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Self, cast
@@ -17,6 +18,7 @@ from multihead import mda
 @dataclass
 class PathInfo:
     """Container for paths used in the mask processing."""
+
     root: Path
     filename: str
     data_root: Path
@@ -29,13 +31,14 @@ class PathInfo:
             root=root,
             filename=filename,
             data_root=root / "data",
-            calib_root=root / "calib"
+            calib_root=root / "calib",
         )
 
     @classmethod
     def from_args(cls, args) -> Self:
         """Create PathInfo from parsed command line arguments."""
         return cls.from_root_and_file(args.root, args.filename)
+
 
 @dataclass
 class ConfigEntry:
@@ -58,13 +61,13 @@ class RawHRPD11BM:
     _image_file: h5py.File
     _mda: MDA
     _detector_map: dict[int, tuple[int, int]]
-    _data_path = "/entry/instrument/detector/data"
+    _data_path: str = "/entry/instrument/detector/data"
 
     def __init__(
         self,
         mda_path: Path,
         image_path: Path,
-        detector_map: tuple[tuple[int, ...], ...],
+        detector_map: Sequence[Sequence[int]],
     ):
         # TODO make opening this lazy?
         self._image_file = h5py.File(image_path)
@@ -99,16 +102,17 @@ class RawHRPD11BM:
         )
 
     def get_detector(self, n: int) -> npt.NDArray[np.uint16]:
-        return load_det(self._image_file[self._data_path], *self._detector_map[n])
+        ds = cast(h5py.Dataset, self._image_file[self._data_path])
+        return load_det(ds, *self._detector_map[n])
 
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         sums: dict[int, npt.NDArray[np.uint64]] = {
             d + 1: np.zeros((256, 256), dtype=np.uint64)
             for d in range(len(self._detector_map))
         }
-        ds = self._image_file[self._data_path]
-        chunks = ds.chunks
-        shape = ds.shape
+        ds = cast(h5py.Dataset, self._image_file[self._data_path])
+        chunks = cast(tuple[int, ...], ds.chunks)
+        shape = cast(tuple[int, ...], ds.shape)
         if chunks[1:] == shape[1:]:
             # inefficient chunking for detector acesss
             n_frames = 1_000
@@ -133,7 +137,7 @@ def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) 
     with h5py.File(file_in) as fin, h5py.File(file_out, "w") as fout:
         dsname = "/entry/instrument/detector/data"
 
-        read_ds = fin[dsname]
+        read_ds = cast(h5py.Dataset, fin[dsname])
         # block_size = 0 let Bitshuffle choose its value
         block_size = 0
 
@@ -179,13 +183,15 @@ def det_slice(n: int, m: int, *, pad: int = 4, npix: int = 256) -> tuple[slice, 
     )
 
 
-def load_det(dset: Any, n: int, m: int) -> npt.NDArray[np.uint16]:
+def load_det(
+    dset: npt.NDArray[np.integer] | h5py.Dataset, n: int, m: int
+) -> npt.NDArray[np.uint16]:
     """
     Helper to extract a single detector from a monolith (stack)
 
     Parameters
     ----------
-    dset : array-like
+    dset : h5py.Dataset or NDArray
        Expected to be 3D with dimensions (time, rows, cols).
 
     n, m : int
