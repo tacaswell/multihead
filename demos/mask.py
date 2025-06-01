@@ -43,6 +43,7 @@ t = RawHRPD11BM.from_root(data_root / f)
 
 opening_radius = 7
 closing_radius = 15
+thresholds = [0, 1, 2, 3, 5]
 
 # %%
 sums = t.get_detector_sums()
@@ -50,7 +51,7 @@ sums = t.get_detector_sums()
 
 
 rois = {}
-thresholds = [0, 1, 2, 3, 5]
+
 fig = plt.figure(figsize=(15, 9), layout="compressed")
 fig.suptitle(f"{f}")
 data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
