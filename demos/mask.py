@@ -1,20 +1,17 @@
 # %%
-import argparse
 from collections.abc import Mapping
-from dataclasses import asdict
 from pathlib import Path
 from typing import cast
 
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import yaml
 from matplotlib.figure import Figure, SubFigure
 from matplotlib.image import AxesImage
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, Slider
 
-import multihead
+from multihead.cli import get_base_parser
 from multihead.file_io import RawHRPD11BM
 from multihead.raw_proc import (
     CrystalROI,
@@ -208,19 +205,7 @@ def make_interaction(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Process and visualize crystal masks")
-    parser.add_argument(
-        "--root",
-        type=Path,
-        default=Path.cwd(),
-        help="Root directory for data",
-    )
-    parser.add_argument(
-        "-f",
-        "--filename",
-        type=str,
-        help="Input filename",
-    )
+    parser = get_base_parser("Process and visualize crystal masks")
     parser.add_argument(
         "--opening-radius",
         type=int,

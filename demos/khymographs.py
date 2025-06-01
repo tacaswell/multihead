@@ -1,3 +1,12 @@
+from typing import cast
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.typing as npt
+
+from multihead.file_io import RawHRPD11BM
+from multihead.raw_proc import compute_rois, CrystalROI
+from multihead.cli import get_base_parser
+
 
 def extract_khymo(
     detector_series: npt.NDArray, roi: CrystalROI | None = None
@@ -87,15 +96,47 @@ def integrate_simple(tth: npt.NDArray[np.floating], khymo: npt.NDArray):
 
 # %%
 
-rois2 = compute_rois(sums)
-all_khymos = all_khymographs(t, rois2)
+def parse_args():
+    parser = get_base_parser("Generate and visualize khymographs from detector data")
+    parser.add_argument(
+        "--ref-index",
+        type=int,
+        default=0,
+        help="Reference detector index for offset calculation",
+    )
+    return parser.parse_args()
 
-# %%
 
-flats = {det: integrate_simple(tth, khymo) for det, (tth, khymo) in all_khymos.items()}
+def main():
+    args = parse_args()
 
-# %%
+    # Initialize the RawHRPD11BM instance with command line arguments
+    t = RawHRPD11BM.from_root(args.root / args.filename)
+    sums = t.get_detector_sums()
 
+    rois2 = compute_rois(sums)
+    all_khymos = all_khymographs(t, rois2.rois)
+
+    flats = {det: integrate_simple(tth, khymo) for det, (tth, khymo) in all_khymos.items()}
+
+    offsets = estimate_crystal_offsets(t, flats)
+
+    # Plotting
+    fig, ax = plt.subplots(layout="constrained")
+
+    {
+        ax.plot(tth + offsets[d], I + d * 200, label=str(d))[0]
+        for d, (tth, I) in flats.items()
+    }
+    ax.legend()
+    ax.set_xlabel("tth")
+    ax.set_ylabel("I")
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
 
 def estimate_crystal_offsets_ref(
     raw: RawHRPD11BM,
@@ -140,22 +181,3 @@ def estimate_crystal_offsets(
         ref = I
 
     return out
-
-
-# %%
-
-offsets = estimate_crystal_offsets(t, flats)
-
-# %%
-
-fig, ax = plt.subplots(layout="constrained")
-
-{
-    ax.plot(tth + offsets[d], I + d * 200, label=str(d))[0]
-    for d, (tth, I) in flats.items()
-}
-ax.legend()
-ax.set_xlabel("tth")
-ax.set_ylabel("I")
-
-plt.show()
