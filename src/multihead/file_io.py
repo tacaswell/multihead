@@ -230,6 +230,52 @@ def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) 
         # TODO: copy everything else!
 
 
+def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
+    """
+    Re-chunk the main detector array
+    """
+    target_chunks = (n_frames, 260, 260)
+    with h5py.File(file_in, "a") as fin:
+        source_dsname = "/entry/instrument/detector/data"
+        dest_dsname = "/entry/data/data"
+        read_ds = cast(h5py.Dataset, fin[source_dsname])
+
+        if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:
+            return
+
+        # block_size = 0 let Bitshuffle choose its value
+        block_size = 0
+
+        try:
+            del fin[dest_dsname]
+        except KeyError:
+            ...
+        dataset = fin.create_dataset(
+            dest_dsname,
+            shape=read_ds.shape,
+            chunks=target_chunks,
+            compression=32008,
+            compression_opts=(block_size, 2),
+            dtype=read_ds.dtype,
+        )
+
+        for j in tqdm.tqdm(range(len(read_ds) // n_frames + 1), desc="re-chunking"):
+            slc = slice(j * n_frames, (j + 1) * n_frames)
+            dataset[slc] = read_ds[slc]
+        del read_ds
+        del fin[source_dsname]
+        fin[source_dsname] = fin[dest_dsname]
+
+    cache_name = Path(file_in).with_suffix(".cache")
+    shutil.move(file_in, cache_name)
+    try:
+        subprocess.run(["h5repack", cache_name, file_in], check=True)
+    except BaseException:
+        shutil.move(cache_name, file_in)
+    else:
+        cache_name.unlink()
+
+
 def det_slice(n: int, m: int, *, pad: int = 4, npix: int = 256) -> tuple[slice, slice]:
     """
     Generate the slices to extract a single frame from 12 frame monolith
