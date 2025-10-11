@@ -1,11 +1,12 @@
 from typing import cast
+import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from multihead.config import CrystalROI
 from multihead.raw_proc import compute_rois
 
-from multihead.file_io import RawHRPD11BM, PathInfo
+from multihead.file_io import HRDRawBase, open_data
 from multihead.cli import get_base_parser
 
 
@@ -36,27 +37,10 @@ def extract_khymo(
 
 
 # %%
-def get_arm_tth(self) -> npt.NDArray[np.float64]:
-    sc = self._mda.scan_config
-    (steps_per_bin,) = sc["MCS prescale"].value
-    (step_size,) = sc["encoder resolution"].value
-
-    bin_size: float = steps_per_bin * step_size
-
-    (Npts,) = sc["NPTS"].value
-    start_tth: float
-    (start_tth,) = sc["start_tth_rbk"].value
-
-    return start_tth + bin_size * np.arange(Npts, dtype=float)
-
-
-def get_monitor(self):
-    return {_.desc: _.data for _ in self._mda.scan.d}
-
 
 # %%
 def get_khymograph(
-    raw: RawHRPD11BM, detector: int, roi: CrystalROI | None = None
+    raw: HRDRawBase, detector: int, roi: CrystalROI | None = None
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]:
     """
     Extract the khymograph for a single detector sequence.
@@ -74,7 +58,7 @@ def get_khymograph(
     print(roi)
     khymo = extract_khymo(series, roi)
 
-    tth = get_arm_tth(raw)
+    tth = raw.get_arm_tth()
 
     return tth, khymo
 
@@ -83,9 +67,9 @@ def get_khymograph(
 
 
 def all_khymographs(
-    raw: RawHRPD11BM, rois: dict[int, CrystalROI]
+    raw: HRDRawBase, rois: dict[int, CrystalROI]
 ) -> dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]]:
-    return {det: get_khymograph(raw, det, roi) for det, roi in rois.items()}
+    return {det: get_khymograph(raw, det, roi) for det, roi in tqdm.tqdm(rois.items(), desc='getting hkymos')}
 
 
 # %%
@@ -110,10 +94,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    paths = PathInfo.from_args(args)
 
     # Initialize the RawHRPD11BM instance with command line arguments
-    t = RawHRPD11BM.from_root(paths.data_root / paths.filename)
+    t = open_data(args.fname)
     sums = t.get_detector_sums()
 
     rois2 = compute_rois(sums)
@@ -138,36 +121,12 @@ def main():
 
 
 
-def estimate_crystal_offsets_ref(
-    raw: RawHRPD11BM,
-    flats: dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]],
-    ref_indx: int = 0,
-) -> dict[int, float]:
-    sc = raw._mda.scan_config
-    (steps_per_bin,) = sc["MCS prescale"].value
-    (step_size,) = sc["encoder resolution"].value
-
-    bin_size: float = steps_per_bin * step_size
-    ref = flats[ref_indx][1]
-    (Npts,) = ref.shape
-    out: dict[int, float] = {}
-    for det, (_, I) in flats.items():
-        offset = np.argmax(np.correlate(ref, I, mode="full")) - Npts
-        out[det] = offset * bin_size
-
-    return out
-
-
 def estimate_crystal_offsets(
-    raw: RawHRPD11BM,
+    raw: HRDRawBase,
     flats: dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]],
 ) -> dict[int, float]:
-    sc = raw._mda.scan_config
-    (steps_per_bin,) = sc["MCS prescale"].value
-    (step_size,) = sc["encoder resolution"].value
 
-    bin_size: float = steps_per_bin * step_size
-
+    bin_size = raw.get_nominal_bin()
     out: dict[int, float] = {}
     iterator = iter(flats.items())
     det, (_, ref) = next(iterator)
@@ -175,7 +134,7 @@ def estimate_crystal_offsets(
     out[det] = cum_offset = 0.0
 
     for det, (_, I) in iterator:
-        offset = np.argmax(np.correlate(ref, I, mode="full")) - Npts
+        offset = np.argmax(np.correlate(ref, I, mode="full")) - Npts - 2
         cum_offset += offset * bin_size
         out[det] = cum_offset
         ref = I
