@@ -1,6 +1,7 @@
 from typing import cast
 import tqdm
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Cursor
 import numpy as np
 import numpy.typing as npt
 from multihead.config import CrystalROI
@@ -116,6 +117,8 @@ def main():
     ax.legend()
     ax.set_xlabel("tth")
     ax.set_ylabel("I")
+    # Set useblit=True on most backends for enhanced performance.
+    cursor = Cursor(ax, useblit=True, color='red', linewidth=2)
 
     plt.show()
 
