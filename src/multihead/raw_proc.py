@@ -2,15 +2,65 @@
 Helpers for processing raw detector images.
 """
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
-import skimage.morphology
+import yaml
+from skimage.morphology import isotropic_closing, isotropic_opening
+
+from .config import CrystalROI, SimpleSliceTuple
+
+__all__ = ["DetectorROIs", "compute_rois", "find_crystal_range"]
+
+
+@dataclass
+class DetectorROIs:
+    rois: dict[int, CrystalROI]
+    software: dict[str, str]
+    parameters: dict[str, int]
+
+    def to_yaml(self, stream):
+        """Write the DetectorROIs to a YAML file."""
+        data = {
+            "software": self.software,
+            "parameters": self.parameters,
+            "rois": [
+                {
+                    "detector_number": k,
+                    "roi_bounds": {
+                        "rslc": list(v.rslc),
+                        "cslc": list(v.cslc)
+                    }
+                } for k, v in self.rois.items()
+            ]
+        }
+        yaml.dump(data, stream)
+
+    @classmethod
+    def from_yaml(cls, stream) -> "DetectorROIs":
+        """Read DetectorROIs from a YAML file."""
+        data = yaml.safe_load(stream)
+        rois = {}
+        for entry in data["rois"]:
+            k = entry["detector_number"]
+            v = entry["roi_bounds"]
+            rois[int(k)] = CrystalROI(
+                SimpleSliceTuple(*v["rslc"]),
+                SimpleSliceTuple(*v["cslc"])
+            )
+        return cls(
+            rois=rois,
+            software=data.get("software", {}),
+            parameters=data.get("parameters", {})
+        )
 
 
 def find_crystal_range(
-    photon_mask: npt.ArrayLike,
-) -> tuple[npt.NDArray[np.int_], slice, slice]:
+    photon_mask: npt.ArrayLike, opening_radius: float = 5, closing_radius: float = 10
+) -> tuple[npt.NDArray[np.int_], CrystalROI]:
     """
     Find the ROI on the detector that capture the passed photons.
 
@@ -21,8 +71,7 @@ def find_crystal_range(
 
     Returns
     -------
-    (slice, slice)
-
+    CrystalROI
 
     Notes
     -----
@@ -30,8 +79,8 @@ def find_crystal_range(
     https://discuss.python.org/t/how-can-i-detect-and-crop-the-rectangular-frame-in-the-image/32378/2
     """
 
-    seg_cleaned = skimage.morphology.isotropic_closing(
-        skimage.morphology.isotropic_opening(photon_mask, 5), 10
+    seg_cleaned = isotropic_closing(
+        isotropic_opening(photon_mask, opening_radius), closing_radius
     )
 
     def get_main_component(segments: npt.NDArray[np.int_]) -> npt.NDArray[np.int_]:
@@ -51,4 +100,30 @@ def find_crystal_range(
     indices_c = mask_c.nonzero()[0]
     minr, maxr = int(indices_r[0]), int(indices_r[-1])
     minc, maxc = int(indices_c[0]), int(indices_c[-1])
-    return mask, slice(minr, maxr), slice(minc, maxc)
+    return mask, CrystalROI(SimpleSliceTuple(minr, maxr), SimpleSliceTuple(minc, maxc))
+
+
+def compute_rois(
+    sums: Mapping[int, npt.NDArray[np.integer]],
+    th: int = 2,
+    closing_radius: int = 10,
+    opening_radius: int = 10,
+) -> DetectorROIs:
+    import multihead
+
+    out: dict[int, CrystalROI] = {}
+    for det, data in sums.items():
+        _mask, croi = find_crystal_range(
+            data > th, closing_radius=closing_radius, opening_radius=opening_radius
+        )
+        out[det] = croi
+    return DetectorROIs(
+        rois=out,
+        software={
+            "name": "multihead",
+            "version": multihead.__version__,
+            "function": "compute_rois",
+            "module": "multihead.raw_proc"
+        },
+        parameters={"threshold": th, "closing_radius": closing_radius, "opening_radius": opening_radius}
+    )

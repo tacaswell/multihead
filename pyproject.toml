@@ -88,7 +88,7 @@ report.exclude_also = [
 ]
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "demos"]
 python_version = "3.12"
 warn_unused_configs = true
 strict = true
@@ -102,9 +102,11 @@ exclude = [
     "_xdrlib\\.py$",
  ]
 
-disable_error_code = ["import-untyped", "no-untyped-call"]
+disable_error_code = ["import-untyped", "no-untyped-call", "type-arg"]
 
-
+[[tool.mypy.overrides]]
+module = "h5py"
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "multihead.*"
@@ -161,6 +163,7 @@ extend-ignore = [
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
   "UP031",  # % formats are fine
+  "PLC0105", # reject rules about naming generic types
   "PTH113",
   "SIM114",
   "SIM115",

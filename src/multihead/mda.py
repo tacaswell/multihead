@@ -273,11 +273,11 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
             out.write("scan.plower_scans = ")
             verboseData(scan.plower_scans, out, asHex=True)
     namelength = u.unpack_int()  # noqa: F841
-    scan.name = u.unpack_string()
+    scan.name = u.unpack_string().decode('latin1')
     if verbose:
         out.write("scan.name = %s\n" % (scan.name))
     timelength = u.unpack_int()  # noqa: F841
-    scan.time = u.unpack_string()
+    scan.time = u.unpack_string().decode('latin1')
     if verbose:
         out.write("scan.time = %s\n" % (repr(scan.time)))
     scan.np = u.unpack_int()
@@ -297,37 +297,37 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
             out.write("positioner %d\n" % (j))
         length = u.unpack_int()  # length of name string
         if length:
-            scan.p[j].name = u.unpack_string()
+            scan.p[j].name = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].name = %s\n" % (j, scan.p[j].name))
         length = u.unpack_int()  # length of desc string
         if length:
-            scan.p[j].desc = u.unpack_string()
+            scan.p[j].desc = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].desc = %s\n" % (j, scan.p[j].desc))
         length = u.unpack_int()  # length of step_mode string
         if length:
-            scan.p[j].step_mode = u.unpack_string()
+            scan.p[j].step_mode = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].step_mode = %s\n" % (j, scan.p[j].step_mode))
         length = u.unpack_int()  # length of unit string
         if length:
-            scan.p[j].unit = u.unpack_string()
+            scan.p[j].unit = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].unit = %s\n" % (j, scan.p[j].unit))
         length = u.unpack_int()  # length of readback_name string
         if length:
-            scan.p[j].readback_name = u.unpack_string()
+            scan.p[j].readback_name = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].readback_name = %s\n" % (j, scan.p[j].readback_name))
         length = u.unpack_int()  # length of readback_desc string
         if length:
-            scan.p[j].readback_desc = u.unpack_string()
+            scan.p[j].readback_desc = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].readback_desc = %s\n" % (j, scan.p[j].readback_desc))
         length = u.unpack_int()  # length of readback_unit string
         if length:
-            scan.p[j].readback_unit = u.unpack_string()
+            scan.p[j].readback_unit = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.p[%d].readback_unit = %s\n" % (j, scan.p[j].readback_unit))
 
@@ -341,17 +341,17 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
             out.write("detector %d\n" % (j))
         length = u.unpack_int()  # length of name string
         if length:
-            scan.d[j].name = u.unpack_string()
+            scan.d[j].name = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.d[%d].name = %s\n" % (j, scan.d[j].name))
         length = u.unpack_int()  # length of desc string
         if length:
-            scan.d[j].desc = u.unpack_string()
+            scan.d[j].desc = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.d[%d].desc = %s\n" % (j, scan.d[j].desc))
         length = u.unpack_int()  # length of unit string
         if length:
-            scan.d[j].unit = u.unpack_string()
+            scan.d[j].unit = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.d[%d].unit = %s\n" % (j, scan.d[j].unit))
 
@@ -362,7 +362,7 @@ def readScan(scanFile, verbose=0, out=sys.stdout, unpacker=None):
             out.write("trigger %d\n" % (j))
         length = u.unpack_int()  # length of name string
         if length:
-            scan.t[j].name = u.unpack_string()
+            scan.t[j].name = u.unpack_string().decode('latin1')
         if verbose:
             out.write("scan.t[%d].name = %s\n" % (j, scan.t[j].name))
         scan.t[j].command = u.unpack_float()
@@ -435,9 +435,9 @@ def readScanQuick(scanFile, unpacker=None, detToDat_offset=None, out=sys.stdout)
             scan.plower_scans = u.unpack_farray(scan.npts, u.unpack_int)
 
     namelength = u.unpack_int()  # noqa: F841
-    scan.name = u.unpack_string()
+    scan.name = u.unpack_string().decode('latin1')
     timelength = u.unpack_int()  # noqa: F841
-    scan.time = u.unpack_string()
+    scan.time = u.unpack_string().decode('latin1')
 
     scan.np = u.unpack_int()
     scan.nd = u.unpack_int()
@@ -942,13 +942,13 @@ def readMDA(
             name = ""
             n = u.unpack_int()  # length of name string
             if n:
-                name = u.unpack_string()
+                name = u.unpack_string().decode('latin1')
             if verbose:
                 out.write("\tname = '%s'\n" % name)
             desc = ""
             n = u.unpack_int()  # length of desc string
             if n:
-                desc = u.unpack_string()
+                desc = u.unpack_string().decode('latin1')
             if verbose:
                 out.write("\tdesc = '%s'\n" % desc)
             EPICS_type = u.unpack_int()
@@ -966,14 +966,14 @@ def readMDA(
                     out.write("\tcount = %d\n" % count)
                 n = u.unpack_int()  # length of unit string
                 if n:
-                    unit = u.unpack_string()
+                    unit = u.unpack_string().decode('latin1')
                 if verbose:
                     out.write("\tunit = '%s'\n" % unit)
 
             if EPICS_type == 0:  # DBR_STRING
                 n = u.unpack_int()  # length of value string
                 if n:
-                    value = u.unpack_string()
+                    value = u.unpack_string().decode('latin1')
             elif EPICS_type == 32:  # DBR_CTRL_CHAR
                 # value = u.unpack_fstring(count)
                 vect = u.unpack_farray(count, u.unpack_int)
@@ -1106,9 +1106,9 @@ def skimScan(dataFile):
         else:
             scan.plower_scans = u.unpack_farray(scan.npts, u.unpack_int)
     namelength = u.unpack_int()  # noqa: F841
-    scan.name = u.unpack_string()
+    scan.name = u.unpack_string().decode('latin1')
     timelength = u.unpack_int()  # noqa: F841
-    scan.time = u.unpack_string()
+    scan.time = u.unpack_string().decode('latin1')
     scan.np = u.unpack_int()
     scan.nd = u.unpack_int()
     scan.nt = u.unpack_int()
