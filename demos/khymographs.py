@@ -97,7 +97,7 @@ def main():
     args = parse_args()
 
     # Initialize the RawHRPD11BM instance with command line arguments
-    t = open_data(args.fname)
+    t = open_data(args.filename, args.ver)
     sums = t.get_detector_sums()
 
     rois2 = compute_rois(sums)
