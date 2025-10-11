@@ -2,10 +2,14 @@
 Functions to read in raw data and extract single detectors.
 """
 
-from collections.abc import Sequence
+import ast
+import re
+import shutil
+import subprocess
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Self, cast
+from typing import Any, ClassVar, Self, cast
 
 import h5py
 import numpy as np
@@ -16,34 +20,13 @@ from multihead import mda
 
 
 @dataclass
-class PathInfo:
-    """Container for paths used in the mask processing."""
-
-    root: Path
-    filename: str
-    data_root: Path
-    calib_root: Path
-
-    @classmethod
-    def from_root_and_file(cls, root: Path, filename: str) -> Self:
-        """Create PathInfo from root path and filename."""
-        return cls(
-            root=root,
-            filename=filename,
-            data_root=root / "data",
-            calib_root=root / "calib",
-        )
-
-    @classmethod
-    def from_args(cls, args) -> Self:
-        """Create PathInfo from parsed command line arguments."""
-        return cls.from_root_and_file(args.root, args.filename)
+class SimpleConfigEntry:
+    unit: str = field(repr=False)
+    value: Any
 
 
 @dataclass
-class ConfigEntry:
-    unit: str = field(repr=False)
-    value: Any
+class ConfigEntry(SimpleConfigEntry):
     epics_type: int = field(repr=False)
     count: int = field(repr=False)
     pv: str
@@ -57,52 +40,25 @@ class MDA:
     scan: mda.scanDim = field(repr=False)
 
 
-class RawHRPD11BM:
-    _image_file: h5py.File
-    _mda: MDA
+class HRDRawBase:
     _detector_map: dict[int, tuple[int, int]]
-    _data_path: str = "/entry/instrument/detector/data"
+    _data_path: ClassVar[str] = "/entry/data/data"
 
     def __init__(
         self,
-        mda_path: Path,
-        image_path: Path,
-        detector_map: Sequence[Sequence[int]],
+        detector_map: Sequence[Sequence[int]] = (
+            (10, 9, 6, 5, 2, 1),
+            (12, 11, 8, 7, 4, 3),
+        ),
     ):
-        # TODO make opening this lazy?
-        self._image_file = h5py.File(image_path)
-        md, scan = mda.readMDA(str(mda_path))
-        scan_md = {k: md[k] for k in md["ourKeys"] if k != "ourKeys"}
-        scan_config = {
-            v[0]: ConfigEntry(*[*v[1:], k])
-            for k, v in md.items()
-            if k not in scan_md and k != "ourKeys"
-        }
-        self._mda = MDA(
-            scan_md,
-            scan_config,
-            {d.desc: d.data for d in scan.d if np.sum(d.data) != 0},
-            scan,
-        )
         self._detector_map = {}
         for k, row in enumerate(detector_map):
             for j, det_number in enumerate(row):
                 self._detector_map[det_number] = (k, j)
-
-    @classmethod
-    def from_root(cls, root: str | Path) -> Self:
-        root_p = Path(root)
-        return cls(
-            root_p.with_suffix(".mda"),
-            root_p.with_suffix(".h5"),
-            (
-                (10, 9, 6, 5, 2, 1),
-                (12, 11, 8, 7, 4, 3),
-            ),
-        )
+        super().__init__()
 
     def get_detector(self, n: int) -> npt.NDArray[np.uint16]:
-        ds = cast(h5py.Dataset, self._image_file[self._data_path])
+        ds = cast(h5py.Dataset, self._h5_file[self._data_path])
         return load_det(ds, *self._detector_map[n])
 
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
@@ -110,7 +66,7 @@ class RawHRPD11BM:
             d + 1: np.zeros((256, 256), dtype=np.uint64)
             for d in range(len(self._detector_map))
         }
-        ds = cast(h5py.Dataset, self._image_file[self._data_path])
+        ds = cast(h5py.Dataset, self._h5_file[self._data_path])
         chunks = cast(tuple[int, ...], ds.chunks)
         shape = cast(tuple[int, ...], ds.shape)
         if chunks[1:] == shape[1:]:
@@ -128,6 +84,123 @@ class RawHRPD11BM:
             for d in range(1, len(self._detector_map) + 1):
                 sums[d] += self.get_detector(d).sum(axis=0)
         return sums
+
+    def get_arm_tth(self) -> npt.NDArray[np.float64]: ...
+    def get_monitor(self) -> npt.NDArray[np.float64]: ...
+    def get_nominal_bin(self) -> float: ...
+
+
+class HRDRawV1(HRDRawBase):
+    _h5_file: h5py.File
+    _mda: MDA
+
+    def __init__(self, mda_path: Path, image_path: Path, **kwargs):
+        # TODO make opening this lazy?
+        self._h5_file = h5py.File(image_path)
+
+        md, scan = mda.readMDA(str(mda_path))
+        scan_md = {k: md[k] for k in md["ourKeys"] if k != "ourKeys"}
+        scan_config = {
+            v[0]: ConfigEntry(*[*v[1:], k])
+            for k, v in md.items()
+            if k not in scan_md and k != "ourKeys"
+        }
+        self._mda = MDA(
+            scan_md,
+            scan_config,
+            {d.desc: d.data for d in scan.d if np.sum(d.data) != 0},
+            scan,
+        )
+        super().__init__(**kwargs)
+
+    @classmethod
+    def from_root(cls, root: str | Path, **kwargs) -> Self:
+        root_p = Path(root)
+        return cls(root_p.with_suffix(".mda"), root_p.with_suffix(".h5"), **kwargs)
+
+    def get_arm_tth(self) -> npt.NDArray[np.float64]:
+        sc = self._mda.scan_config
+        (steps_per_bin,) = sc["MCS prescale"].value
+        (step_size,) = sc["encoder resolution"].value
+
+        bin_size: float = steps_per_bin * step_size
+
+        (Npts,) = sc["NPTS"].value
+        start_tth: float
+        (start_tth,) = sc["start_tth_rbk"].value
+
+        return start_tth + bin_size * np.arange(Npts, dtype=float)
+
+    def get_monitor(self) -> npt.NDArray[np.float64]:
+        return {_.desc: _.data for _ in self._mda.scan.d}
+
+    def get_nominal_bin(self) -> float:
+        sc = self._mda.scan_config
+        (steps_per_bin,) = sc["MCS prescale"].value
+        (step_size,) = sc["encoder resolution"].value
+
+        return steps_per_bin * step_size
+
+
+class HRDRawV2(HRDRawBase):
+    _monitor_path: ClassVar[str] = "/entry/data/Mon"
+    _tth_path: ClassVar[str] = "/entry/data/TTH"
+    _MD_MAPPING: ClassVar[dict[str, Callable[[str], Any]]] = {
+        "Run no.": int,
+        "No. steps": int,
+        "Scan Comment": str,
+        "Sample Comment": str,
+        "User sample name": lambda x: ast.literal_eval(x).decode("latin-1"),
+        "Composition": str,
+        "Proposal number": str,
+        "Email(s)": str,
+        "Temp (K)": lambda x: float(ast.literal_eval(x)),
+        "Barcode ID": str,
+        "Start 2theta (deg)": float,
+        "End 2theta (deg)": float,
+        "Nominal 2theta step (deg)": float,
+        "Time per step (sec)": float,
+        "Actual 2theta step (deg)": float,
+        "200/Ring Current[0]": float,
+        "Monitor I0 [0]": float,
+        "Monitor I1 [0]": float,
+    }
+
+    @classmethod
+    def extract_md(cls, md: list[str]) -> dict[str, SimpleConfigEntry]:
+        def parse_comments(inp: list[str]) -> dict[str, str]:
+            out = {}
+            for e in inp:
+                k, _, v = e.partition("=")
+                out[k[2:].strip()] = v
+            return out
+
+        def split_key(k: str) -> tuple[str, str]:
+            if "(" not in k:
+                return k.strip(), ""
+            return tuple(x.strip() for x in re.match(r"([^(]+)\(([^)]+)\)", k).groups())
+
+        out = {}
+        for k, v in parse_comments(md).items():
+            key, unit = split_key(k)
+            out[key] = SimpleConfigEntry(value=cls._MD_MAPPING[k](v.strip()), unit=unit)
+
+        return out
+
+    def __init__(self, path: Path, **kwargs):
+        # TODO make opening this lazy?
+        self._h5_file = h5py.File(path)
+        self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))
+        super().__init__(**kwargs)
+
+    def get_arm_tth(self) -> npt.NDArray[np.float64]:
+        return self._h5_file[self._tth_path][:]
+
+    def get_monitor(self) -> npt.NDArray[np.float64]:
+        return self._h5_file[self._monitor_path][:]
+
+    def get_nominal_bin(self) -> float:
+        return self._md["Nominal 2theta step"].value
 
 
 def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) -> None:
@@ -202,3 +275,13 @@ def load_det(
     The (stack) for a single detector.
     """
     return cast(npt.NDArray[np.uint16], dset[:, *det_slice(n, m)])
+
+
+def open_data(fname: str | Path, version: int):
+    if version == 1:
+        t = HRDRawV1.from_root(fname)
+    elif version == 2:
+        t = HRDRawV2(fname)
+    else:
+        raise ValueError(f"only version 1 and 2 supported, not {version}")
+    return t
