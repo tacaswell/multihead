@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Cursor
 import numpy as np
 import numpy.typing as npt
-from multihead.config import CrystalROI
+from pathlib import Path
+from multihead.config import CrystalROI, DetectorROIs, BankCalibration, SpectraCalib
 from multihead.raw_proc import compute_rois
 
 from multihead.file_io import HRDRawBase, open_data
@@ -39,6 +40,7 @@ def extract_khymo(
 
 # %%
 
+
 # %%
 def get_khymograph(
     raw: HRDRawBase, detector: int, roi: CrystalROI | None = None
@@ -56,7 +58,6 @@ def get_khymograph(
 
     """
     series = raw.get_detector(detector)
-    print(roi)
     khymo = extract_khymo(series, roi)
 
     tth = raw.get_arm_tth()
@@ -70,7 +71,10 @@ def get_khymograph(
 def all_khymographs(
     raw: HRDRawBase, rois: dict[int, CrystalROI]
 ) -> dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]]:
-    return {det: get_khymograph(raw, det, roi) for det, roi in tqdm.tqdm(rois.items(), desc='getting hkymos')}
+    return {
+        det: get_khymograph(raw, det, roi)
+        for det, roi in tqdm.tqdm(rois.items(), desc="getting hkymos")
+    }
 
 
 # %%
@@ -82,6 +86,7 @@ def integrate_simple(tth: npt.NDArray[np.floating], khymo: npt.NDArray):
 
 # %%
 
+
 def parse_args():
     parser = get_base_parser("Generate and visualize khymographs from detector data")
     parser.add_argument(
@@ -90,45 +95,139 @@ def parse_args():
         default=0,
         help="Reference detector index for offset calculation",
     )
+    parser.add_argument(
+        "--roi-config",
+        type=str,
+        help="Path to ROI configuration file (YAML format)",
+        required=False,
+    )
+    parser.add_argument(
+        "--calibration-config",
+        type=str,
+        help="Path to calibration configuration file (YAML or text format)",
+        required=False,
+    )
     return parser.parse_args()
+
+
+def load_configs(args) -> tuple[DetectorROIs | None, BankCalibration | None]:
+    """Load ROI and calibration configuration files if provided.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command line arguments containing roi_config and calibration_config paths
+
+    Returns
+    -------
+    tuple[DetectorROIs | None, BankCalibration | None]
+        Tuple containing loaded ROI config and calibration config, or None if not provided
+    """
+    roi_config = None
+    calibration_config = None
+
+    if args.roi_config:
+        roi_path = Path(args.roi_config)
+        if not roi_path.exists():
+            raise FileNotFoundError(f"ROI config file not found: {roi_path}")
+        roi_config = DetectorROIs.from_yaml(roi_path)
+
+    if args.calibration_config:
+        calib_path = Path(args.calibration_config)
+        if not calib_path.exists():
+            raise FileNotFoundError(f"Calibration config file not found: {calib_path}")
+
+        # Determine file format by extension
+        if calib_path.suffix.lower() in [".yaml", ".yml"]:
+            calibration_config = BankCalibration.from_yaml(calib_path)
+        else:
+            # Assume text format
+            calibration_config = BankCalibration.from_text(calib_path)
+
+    return roi_config, calibration_config
 
 
 def main():
     args = parse_args()
 
+    # Load optional configuration files
+    roi_config, calibration_config = load_configs(args)
+
     # Initialize the RawHRPD11BM instance with command line arguments
     t = open_data(args.filename, args.ver)
-    sums = t.get_detector_sums()
 
-    rois2 = compute_rois(sums)
+    # Use provided ROI config if available, otherwise compute ROIs
+    if roi_config is not None:
+        print("Using ROI configuration from file")
+        rois2 = roi_config
+    else:
+        print("Computing ROIs from detector sums")
+        rois2 = compute_rois(t.get_detector_sums())
+
     all_khymos = all_khymographs(t, rois2.rois)
 
-    flats = {det: integrate_simple(tth, khymo) for det, (tth, khymo) in all_khymos.items()}
+    flats = {
+        det: integrate_simple(tth, khymo) for det, (tth, khymo) in all_khymos.items()
+    }
 
-    offsets = estimate_crystal_offsets(t, flats)
+    # Use calibration config if available, otherwise estimate offsets and create calibration
+    if calibration_config is None:
+        print("Estimating crystal offsets from data")
+        offsets = estimate_crystal_offsets(t, flats)
+
+        # Create BankCalibration object with estimated offsets and default values
+        # Default wavelength for 15 keV X-rays: λ = hc/E = (4.136 × 10^-15 eV·s × 3 × 10^8 m/s) / (15000 eV)
+        # = 8.272 × 10^-11 m = 0.08272 nm
+        default_wavelength = 0.08272  # nm for 15 keV
+        default_scale = 1.0
+
+        calibrations = {
+            det: SpectraCalib(
+                offset=offset, scale=default_scale, wavelength=default_wavelength
+            )
+            for det, offset in offsets.items()
+        }
+
+        calibration_config = BankCalibration(
+            calibrations=calibrations,
+            software={
+                "name": "multihead",
+                "version": "dev",
+                "script": "khymographs.py",
+            },
+            parameters={
+                "num_detectors": len(offsets),
+                "estimation_method": "correlation_based",
+                "default_wavelength_nm": default_wavelength,
+                "default_scale": default_scale,
+            },
+        )
+    calibs = calibration_config.calibrations
 
     # Plotting
     fig, ax = plt.subplots(layout="constrained")
-
-    {
-        ax.plot(tth + offsets[d], I + d * 200, label=str(d))[0]
+    lines = [
+        ax.plot(
+            4 * np.pi / calibs[d].wavelength * np.sin(np.deg2rad((tth + calibs[d].offset) / 2)),
+            I * calibs[d].scale + 0*d * 200,
+            label=str(d),
+        )[0]
         for d, (tth, I) in flats.items()
-    }
+    ]
     ax.legend()
-    ax.set_xlabel("tth")
+    ax.set_xlabel("Q")
     ax.set_ylabel("I")
     # Set useblit=True on most backends for enhanced performance.
-    cursor = Cursor(ax, useblit=True, color='red', linewidth=2)
+    cursor = Cursor(ax, useblit=True, color="red", linewidth=2)
 
     plt.show()
-
+    return fig, lines, cursor
 
 
 def estimate_crystal_offsets(
     raw: HRDRawBase,
     flats: dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]],
 ) -> dict[int, float]:
-
     bin_size = raw.get_nominal_bin()
     out: dict[int, float] = {}
     iterator = iter(flats.items())
@@ -143,6 +242,7 @@ def estimate_crystal_offsets(
         ref = I
 
     return out
+
 
 if __name__ == "__main__":
     main()
