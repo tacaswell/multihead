@@ -1,4 +1,5 @@
 # %%
+
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
@@ -13,7 +14,7 @@ from matplotlib.widgets import Button, Slider
 
 from multihead.cli import get_base_parser
 from multihead.config import CrystalROI
-from multihead.file_io import PathInfo, RawHRPD11BM
+from multihead.file_io import open_data
 from multihead.raw_proc import compute_rois, find_crystal_range
 
 # %%
@@ -133,6 +134,7 @@ def make_interaction(
     images: dict[tuple[int, int], AxesImage],
     f: str,
     calib_root: Path,
+    outname: Path | None=None
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
@@ -178,20 +180,24 @@ def make_interaction(
         color="xkcd:bubble gum pink",
         hovercolor="xkcd:carnation pink",
     )
-
+    if outname is None:
+        outname = Path(f).name
     def _on_save(event):  # noqa: ARG001
         compute_kwargs = dict(
             th=int(th_slider.val),
             closing_radius=int(closing_slider.val),
             opening_radius=int(opening_slider.val),
+            source_file=str(Path(f).name)
         )
         res = compute_rois(sums, **compute_kwargs)
         print(res)
         roi_root = calib_root / "rois"
         roi_root.mkdir(exist_ok=True, parents=True)
-        with open(roi_root / f"{f}.yaml", "w") as stream:
+        output_file = roi_root / f"{outname}.yaml"
+        print(output_file, '****')
+        with open(output_file, "w") as stream:
             res.to_yaml(stream)
-        print(f"wrote to {roi_root / f}.yaml")
+        print(f"wrote to {output_file}")
 
     b.on_clicked(_on_save)
 
@@ -222,21 +228,27 @@ def parse_args():
         default=[0, 1, 2, 3, 5],
         help="List of threshold values",
     )
+    parser.add_argument(
+        "--calib-root",
+        type=Path,
+        help="Location to write configuration to."
+        )
+
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    paths = PathInfo.from_args(args)
+    print(args)
     opening_radius = args.opening_radius
     closing_radius = args.closing_radius
     thresholds = args.thresholds
 
-    t = RawHRPD11BM.from_root(paths.data_root / paths.filename)
+    t = open_data(args.filename, args.ver)
     sums = t.get_detector_sums()
 
     fig = plt.figure(figsize=(15, 9), layout="compressed")
-    fig.suptitle(f"{paths.filename}")
+    fig.suptitle(f"{args.filename}")
     data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
     figs, rects, images = make_figure(
@@ -250,8 +262,8 @@ def main():
         closing_radius,
         rects,
         images,
-        paths.filename,
-        paths.calib_root,
+        args.filename,
+        args.calib_root
     )
 
     plt.show()
