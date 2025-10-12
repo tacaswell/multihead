@@ -3,59 +3,17 @@ Helpers for processing raw detector images.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+
 
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
-import yaml
+
 from skimage.morphology import isotropic_closing, isotropic_opening
 
-from .config import CrystalROI, SimpleSliceTuple
+from .config import CrystalROI, SimpleSliceTuple, DetectorROIs
 
-__all__ = ["DetectorROIs", "compute_rois", "find_crystal_range"]
-
-
-@dataclass
-class DetectorROIs:
-    rois: dict[int, CrystalROI]
-    software: dict[str, str]
-    parameters: dict[str, int]
-
-    def to_yaml(self, stream):
-        """Write the DetectorROIs to a YAML file."""
-        data = {
-            "software": self.software,
-            "parameters": self.parameters,
-            "rois": [
-                {
-                    "detector_number": k,
-                    "roi_bounds": {
-                        "rslc": list(v.rslc),
-                        "cslc": list(v.cslc)
-                    }
-                } for k, v in self.rois.items()
-            ]
-        }
-        yaml.dump(data, stream)
-
-    @classmethod
-    def from_yaml(cls, stream) -> "DetectorROIs":
-        """Read DetectorROIs from a YAML file."""
-        data = yaml.safe_load(stream)
-        rois = {}
-        for entry in data["rois"]:
-            k = entry["detector_number"]
-            v = entry["roi_bounds"]
-            rois[int(k)] = CrystalROI(
-                SimpleSliceTuple(*v["rslc"]),
-                SimpleSliceTuple(*v["cslc"])
-            )
-        return cls(
-            rois=rois,
-            software=data.get("software", {}),
-            parameters=data.get("parameters", {})
-        )
+__all__ = ["compute_rois", "find_crystal_range"]
 
 
 def find_crystal_range(
