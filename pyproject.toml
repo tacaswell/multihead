@@ -162,7 +162,9 @@ extend-ignore = [
   "EM102",  # use an fstring in an exception if you want
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
+  "UP015",  # "redundent" read mode is OK
   "UP031",  # % formats are fine
+  "UP038",  # Union syntax is not clearer
   "PLC0105", # reject rules about naming generic types
   "PTH113",
   "SIM114",
