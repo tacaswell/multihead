@@ -38,37 +38,66 @@ class DetectorROIs:
     software: dict[str, str]
     parameters: dict[str, int]
 
-    def to_yaml(self, stream):
-        """Write the DetectorROIs to a YAML file."""
-        data = {
-            "software": self.software,
-            "parameters": self.parameters,
-            "rois": [
-                {
-                    "detector_number": k,
-                    "roi_bounds": {"rslc": list(v.rslc), "cslc": list(v.cslc)},
-                }
-                for k, v in self.rois.items()
-            ],
-        }
-        yaml.dump(data, stream)
+    def to_yaml(self, stream: str | Path | TextIO) -> None:
+        """
+        Write the DetectorROIs to a YAML file.
+
+        Parameters
+        ----------
+        stream : str, Path, or TextIO
+            The output file path or stream to write the YAML data to.
+            If a string or Path, the file will be opened and closed automatically.
+        """
+        with ExitStack() as stack:
+            if isinstance(stream, (str, Path)):
+                stream = stack.enter_context(open(stream, "w"))
+
+            data = {
+                "software": self.software,
+                "parameters": self.parameters,
+                "rois": [
+                    {
+                        "detector_number": k,
+                        "roi_bounds": {"rslc": list(v.rslc), "cslc": list(v.cslc)},
+                    }
+                    for k, v in self.rois.items()
+                ],
+            }
+            yaml.dump(data, stream)
 
     @classmethod
-    def from_yaml(cls, stream) -> "DetectorROIs":
-        """Read DetectorROIs from a YAML file."""
-        data = yaml.safe_load(stream)
-        rois = {}
-        for entry in data["rois"]:
-            k = entry["detector_number"]
-            v = entry["roi_bounds"]
-            rois[int(k)] = CrystalROI(
-                SimpleSliceTuple(*v["rslc"]), SimpleSliceTuple(*v["cslc"])
+    def from_yaml(cls, stream: str | Path | TextIO) -> "DetectorROIs":
+        """
+        Read DetectorROIs from a YAML file.
+
+        Parameters
+        ----------
+        stream : str, Path, or TextIO
+            The input file path or stream containing YAML data.
+            If a string or Path, the file will be opened and closed automatically.
+
+        Returns
+        -------
+        DetectorROIs
+            A new DetectorROIs instance with data loaded from the YAML file.
+        """
+        with ExitStack() as stack:
+            if isinstance(stream, (str, Path)):
+                stream = stack.enter_context(open(stream))
+
+            data = yaml.safe_load(stream)
+            rois = {}
+            for entry in data["rois"]:
+                k = entry["detector_number"]
+                v = entry["roi_bounds"]
+                rois[int(k)] = CrystalROI(
+                    SimpleSliceTuple(*v["rslc"]), SimpleSliceTuple(*v["cslc"])
+                )
+            return cls(
+                rois=rois,
+                software=data.get("software", {}),
+                parameters=data.get("parameters", {}),
             )
-        return cls(
-            rois=rois,
-            software=data.get("software", {}),
-            parameters=data.get("parameters", {}),
-        )
 
 
 @dataclass
