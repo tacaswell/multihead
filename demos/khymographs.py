@@ -204,12 +204,14 @@ def main():
         )
     calibs = calibration_config.calibrations
 
+    mon = t.get_monitor()
+
     # Plotting
     fig, ax = plt.subplots(layout="constrained")
     lines = [
         ax.plot(
             4 * np.pi / calibs[d].wavelength * np.sin(np.deg2rad((tth + calibs[d].offset) / 2)),
-            I * calibs[d].scale + 0*d * 200,
+            (I / mon) * calibs[d].scale + 0*d * 200,
             label=str(d),
         )[0]
         for d, (tth, I) in flats.items()
