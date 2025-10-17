@@ -145,6 +145,11 @@ class BankCalibration:
     software: dict[str, str]
     parameters: dict[str, Any]
 
+    def average_wavelength(self):
+        return sum(det.wavelength for det in self.calibrations.values()) / len(
+            self.calibrations
+        )
+
     def to_yaml(self, stream: str | Path | TextIO) -> None:
         """
         Write the Calibration to a YAML file.

@@ -85,3 +85,15 @@ def compute_rois(
         },
         parameters={"threshold": th, "closing_radius": closing_radius, "opening_radius": opening_radius}
     )
+
+
+def correct_ttheta(arm_tth, offset, wavelength, average_wavelength):
+    π = np.pi
+
+    def ttheta_to_q(tth, λ):
+        return 4 * π / λ * np.sin(np.deg2rad(tth / 2))
+
+    def q_to_ttheta(q, λ):
+        return 2 * np.rad2deg(np.arcsin(λ / (4 * π) * q))
+
+    return q_to_ttheta(ttheta_to_q(arm_tth + offset, wavelength), average_wavelength)

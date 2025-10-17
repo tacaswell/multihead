@@ -166,6 +166,7 @@ extend-ignore = [
   "UP031",  # % formats are fine
   "UP038",  # Union syntax is not clearer
   "PLC0105", # reject rules about naming generic types
+  "PLC2401", # allow greek to make equations clearer
   "PTH113",
   "SIM114",
   "SIM115",

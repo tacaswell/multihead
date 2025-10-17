@@ -10,7 +10,7 @@ from matplotlib.widgets import Cursor
 from multihead.cli import get_base_parser
 from multihead.config import BankCalibration, CrystalROI, DetectorROIs, SpectraCalib
 from multihead.file_io import HRDRawBase, open_data
-from multihead.raw_proc import compute_rois
+from multihead.raw_proc import compute_rois, correct_ttheta
 
 
 def extract_khymo(
@@ -226,21 +226,49 @@ def main():
     fig, ax = plt.subplots(layout="constrained")
     lines = [
         ax.plot(
-            4
-            * np.pi
-            / calibs[d].wavelength
-            * np.sin(np.deg2rad((tth + calibs[d].offset) / 2)),
-            (I / mon) * calibs[d].scale + 0 * d * 200,
+            correct_ttheta(
+                tth,
+                calibs[d].offset,
+                calibs[d].wavelength,
+                calibration_config.average_wavelength(),
+            ),
+            (I / mon) * calibs[d].scale,
             label=str(d),
         )[0]
         for d, (tth, I) in flats.items()
     ]
     ax.legend()
-    ax.set_xlabel("Q")
+    ax.set_xlabel(r"2$\theta$")
     ax.set_ylabel("I")
     # Set useblit=True on most backends for enhanced performance.
     cursor = Cursor(ax, useblit=True, color="red", linewidth=2)
 
+    cmap = plt.get_cmap("viridis")
+    cmap.set_under("w")
+    for det, (tth, khymo) in all_khymos.items():
+        ctth = correct_ttheta(
+            tth,
+            calibs[det].offset,
+            calibs[det].wavelength,
+            calibration_config.average_wavelength(),
+        )
+        fig_kyho = plt.figure()
+        fig_kyho.suptitle(f"Detector {det}")
+        ax_d = fig_kyho.subplot_mosaic("AB", width_ratios=(1, 5), sharey=True)
+        ax_d["B"].imshow(
+            khymo,
+            aspect="auto",
+            extent=(
+                0,
+                khymo.shape[1],
+                ctth.min(),
+                ctth.max(),
+            ),
+            origin="lower",
+            vmin=1,
+            cmap=cmap,
+        )
+        ax_d["A"].plot(flats[det][1], ctth)
     plt.show()
     return fig, lines, cursor
 
