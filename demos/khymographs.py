@@ -108,6 +108,13 @@ def parse_args():
         help="Path to calibration configuration file (YAML or text format)",
         required=False,
     )
+    parser.add_argument(
+        "--detectors",
+        type=int,
+        nargs="*",
+        help="List of detector numbers to process. If not specified, all detectors will be processed.",
+        required=False,
+    )
     return parser.parse_args()
 
 
@@ -164,6 +171,16 @@ def main():
     else:
         print("Computing ROIs from detector sums")
         rois2 = compute_rois(t.get_detector_sums())
+
+    # Filter detectors if specific ones were requested
+    if args.detectors is not None:
+        filtered_rois = {
+            det: roi for det, roi in rois2.rois.items() if det in args.detectors
+        }
+        rois2.rois = filtered_rois
+        print(f"Processing detectors: {sorted(args.detectors)}")
+    else:
+        print(f"Processing all detectors: {sorted(rois2.rois.keys())}")
 
     all_khymos = all_khymographs(t, rois2.rois)
 
