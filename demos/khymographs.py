@@ -1,15 +1,16 @@
+from pathlib import Path
 from typing import cast
-import tqdm
+
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Cursor
 import numpy as np
 import numpy.typing as npt
-from pathlib import Path
-from multihead.config import CrystalROI, DetectorROIs, BankCalibration, SpectraCalib
-from multihead.raw_proc import compute_rois
+import tqdm
+from matplotlib.widgets import Cursor
 
-from multihead.file_io import HRDRawBase, open_data
 from multihead.cli import get_base_parser
+from multihead.config import BankCalibration, CrystalROI, DetectorROIs, SpectraCalib
+from multihead.file_io import HRDRawBase, open_data
+from multihead.raw_proc import compute_rois
 
 
 def extract_khymo(
@@ -208,8 +209,11 @@ def main():
     fig, ax = plt.subplots(layout="constrained")
     lines = [
         ax.plot(
-            4 * np.pi / calibs[d].wavelength * np.sin(np.deg2rad((tth + calibs[d].offset) / 2)),
-            (I / mon) * calibs[d].scale + 0*d * 200,
+            4
+            * np.pi
+            / calibs[d].wavelength
+            * np.sin(np.deg2rad((tth + calibs[d].offset) / 2)),
+            (I / mon) * calibs[d].scale + 0 * d * 200,
             label=str(d),
         )[0]
         for d, (tth, I) in flats.items()
