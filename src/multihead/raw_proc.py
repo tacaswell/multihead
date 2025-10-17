@@ -81,9 +81,13 @@ def compute_rois(
             "name": "multihead",
             "version": multihead.__version__,
             "function": "compute_rois",
-            "module": "multihead.raw_proc"
+            "module": "multihead.raw_proc",
         },
-        parameters={"threshold": th, "closing_radius": closing_radius, "opening_radius": opening_radius}
+        parameters={
+            "threshold": th,
+            "closing_radius": closing_radius,
+            "opening_radius": opening_radius,
+        },
     )
 
 
