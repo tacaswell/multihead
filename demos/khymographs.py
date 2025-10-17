@@ -176,9 +176,7 @@ def main():
         offsets = estimate_crystal_offsets(t, flats)
 
         # Create BankCalibration object with estimated offsets and default values
-        # Default wavelength for 15 keV X-rays: λ = hc/E = (4.136 × 10^-15 eV·s × 3 × 10^8 m/s) / (15000 eV)
-        # = 8.272 × 10^-11 m = 0.08272 nm
-        default_wavelength = 0.08272  # nm for 15 keV
+        default_wavelength = 0.8272  # Å for 15 keV
         default_scale = 1.0
 
         calibrations = {

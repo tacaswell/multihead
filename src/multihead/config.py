@@ -112,14 +112,14 @@ class SpectraCalib:
     scale : float
         Scale factor, arbitrary units near 1.
     wavelength : float
-        Wavelength per analyzer
+        Wavelength per analyzer in angstrom (Å)
     """
 
     # degrees
     offset: float
     # arb, near 1
     scale: float
-    # no guess yet!
+    # Å
     wavelength: float
 
 
