@@ -102,17 +102,51 @@ class DetectorROIs:
 
 @dataclass
 class SpectraCalib:
-    """
+    r"""
     Spectral calibration parameters for a single detector.
 
     Attributes
     ----------
     offset : float
-        Angular offset in degrees.
+        Angular offset in degrees from arm
+
+       *psi* in multianalyzer code
     scale : float
-        Scale factor, arbitrary units near 1.
+        Scale factor, arbitrary units near 1.  Accounts for different response of
+        analyzer crystal and detector.
     wavelength : float
-        Wavelength per analyzer in angstrom (Å)
+        Wavelength per analyzer in angstrom (Å).
+
+        Due to slight differences in alignment, each analyzer crystal has a
+        slightly different average energy of photons passed.
+    center : float
+        Where the beam with phi=0 hits the detector.
+
+        *center* in multianalyzer code
+    theta_i : float
+        The incident angle of the xrays on the analyzer crystal in deg.
+
+        This is effectively the cyrstal pitch
+
+        $\theta_a$ in Fitch 2021 Fig 2
+        *tha* in multianalyzer code
+    theta_d : float
+        The angle of the normal to the detector in deg.
+
+        $\theta_d$ in Fitch 2021 Fig 2
+        *thd* in multianalyzer code
+    crystal_roll : float
+        The roll miss-alignment of the analyzer crystal rolling relative to the
+        beam direction in deg
+
+        $\vartheta_x$ in Fitch 2021 Fig 2
+        *rollx* in multianalyzer code
+    crystal_yaw : float
+        The yaw miss-alignment of the analyzer crystal relative to the
+        beam direction in deg
+
+        $\vartheta_y$ in Fitch 2021 Fig 2
+        *rolly* in multianalyzer code
     """
 
     # degrees
@@ -121,6 +155,13 @@ class SpectraCalib:
     scale: float
     # Å
     wavelength: float
+    # pixels
+    center: float
+    # deg
+    theta_i: float
+    theta_d: float
+    crystal_roll: float
+    crystal_yaw: float
 
 
 @dataclass
@@ -139,11 +180,28 @@ class BankCalibration:
         Software metadata including version, name, etc.
     parameters : dict[str, int | str]
         Processing parameters including number of detectors, calibration source, etc.
+    R : float
+        Sample to analyzer distance, mm
+
+        $L$ in Fitch 2021 Fig 2
+        *L* in multianalyzer code
+    Rd : float
+        Analyzer to detector distance, mm
+
+        $L2$ in Fitch 2021 Fig 2
+        *L2* in multianalyzer code
+    pixel_pitch : float
+        Pixel pitch in mm
+
+        *pixel* in multianalyzer code
     """
 
     calibrations: dict[int, SpectraCalib]
     software: dict[str, str]
     parameters: dict[str, Any]
+    R: float
+    Rd: float
+    pixel_pitch: float
 
     @property
     def average_wavelength(self):
