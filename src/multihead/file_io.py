@@ -323,7 +323,8 @@ def load_det(
     return cast(npt.NDArray[np.uint16], dset[:, *det_slice(n, m)])
 
 
-def open_data(fname: str | Path, version: int):
+def open_data(fname: str | Path, version: int) -> HRDRawBase:
+    t : HRDRawBase
     if version == 1:
         t = HRDRawV1.from_root(fname)
     elif version == 2:
