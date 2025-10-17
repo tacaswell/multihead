@@ -145,6 +145,7 @@ class BankCalibration:
     software: dict[str, str]
     parameters: dict[str, Any]
 
+    @property
     def average_wavelength(self):
         return sum(det.wavelength for det in self.calibrations.values()) / len(
             self.calibrations

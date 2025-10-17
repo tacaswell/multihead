@@ -230,7 +230,7 @@ def main():
                 tth,
                 calibs[d].offset,
                 calibs[d].wavelength,
-                calibration_config.average_wavelength(),
+                calibration_config.average_wavelength,
             ),
             (I / mon) * calibs[d].scale,
             label=str(d),
@@ -250,7 +250,7 @@ def main():
             tth,
             calibs[det].offset,
             calibs[det].wavelength,
-            calibration_config.average_wavelength(),
+            calibration_config.average_wavelength,
         )
         fig_kyho = plt.figure()
         fig_kyho.suptitle(f"Detector {det}")
