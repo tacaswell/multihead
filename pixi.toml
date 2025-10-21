@@ -5,8 +5,6 @@ name = "Lab6_testdata_share"
 platforms = ["linux-64", "win-64", "osx-64"]
 version = "0.1.0"
 
-[tasks]
-
 [dependencies]
 matplotlib = ">=3.10.1,<4"
 ipython = ">=9.2.0,<10"
@@ -20,6 +18,12 @@ tqdm = ">=4.67.1,<5"
 python = ">=3.13"
 pyyaml = ">=6.0.2,<7"
 pytest = ">=8.3.5,<9"
+tiled = "*"
+
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }
+
+[tasks]
+tiled_serve = { cmd = "tiled serve config config.yml --public", cwd = "tiled", env = { TILED_API_KEY = 'secret' } }
+tiled_register = { cmd = "python register_helper.py /nsls2/data3/projects/next_iiia_hrd/xrt_output/", cwd = 'tiled', env = { TILED_API_KEY = 'secret' } }

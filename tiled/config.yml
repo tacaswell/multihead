@@ -1,0 +1,21 @@
+# config.yml
+authentication:
+  single_user_api_key: ${TILED_API_KEY}
+  allow_anonymous_access: false
+trees:
+  - tree: catalog
+    path: /raw
+    args:
+      uri: ./catalog-raw.db
+      readable_storage:
+        - /nsls2/data3/projects/next_iiia_hrd/xrt_output
+      init_if_not_exists: true
+      adapters_by_mimetype:
+        application/x-hdf5: multihead.tiled.tiled:HRDRawAdapter
+  - tree: catalog
+    path: /reduced
+    args:
+      uri: ./catalog-reduced.db
+      readable_storage:
+        - /nsls2/data3/projects/next_iiia_hrd/reduced
+      init_if_not_exists: true
