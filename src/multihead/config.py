@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, NamedTuple, Self, TextIO
 
+import numpy as np
+
 import yaml
 
 __all__ = [
@@ -226,6 +228,9 @@ class BankCalibration:
             data = {
                 "software": self.software,
                 "parameters": self.parameters,
+                "R": self.R,
+                "Rd": self.Rd,
+                "pixel_pitch": self.pixel_pitch,
                 "calibrations": [
                     {"detector_number": k, "calibration": asdict(v)}
                     for k, v in self.calibrations.items()
@@ -234,7 +239,12 @@ class BankCalibration:
             yaml.dump(data, stream)
 
     @classmethod
-    def from_yaml(cls, stream: str | Path | TextIO) -> Self:
+    def from_yaml(
+        cls,
+        stream: str | Path | TextIO,
+        bank_defaults: dict[str, Any] | None = None,
+        spectra_defaults: dict[str, Any] | None = None
+    ) -> Self:
         """
         Read BankCalibration from a YAML file.
 
@@ -243,32 +253,68 @@ class BankCalibration:
         stream : str, Path, or TextIO
             The input file path or stream containing YAML data.
             If a string or Path, the file will be opened and closed automatically.
+        bank_defaults : dict[str, Any], optional
+            Dictionary of default values for missing BankCalibration attributes
+            (R, Rd, pixel_pitch).
+        spectra_defaults : dict[str, Any], optional
+            Dictionary of default values for missing SpectraCalib attributes
+            (center, theta_i, theta_d, crystal_roll, crystal_yaw).
 
         Returns
         -------
         Self
             A new BankCalibration instance with data loaded from the YAML file.
         """
+        if bank_defaults is None:
+            bank_defaults = {}
+        if spectra_defaults is None:
+            spectra_defaults = {}
+
         with ExitStack() as stack:
             if isinstance(stream, (str, Path)):
                 stream = stack.enter_context(open(stream))
 
             data: dict[str, Any] = yaml.safe_load(stream)
+
+            # Apply bank-level defaults to data
+            for k, val in bank_defaults.items():
+                data.setdefault(k, val)
+
             calibrations: dict[int, SpectraCalib] = {}
             for entry in data["calibrations"]:
                 k = entry["detector_number"]
                 v = entry["calibration"]
+
+                # Apply spectra-level defaults to calibration data
+                for spec_k, spec_val in spectra_defaults.items():
+                    v.setdefault(spec_k, spec_val)
+
                 calibrations[int(k)] = SpectraCalib(
-                    offset=v["offset"], scale=v["scale"], wavelength=v["wavelength"]
+                    offset=v["offset"],
+                    scale=v["scale"],
+                    wavelength=v["wavelength"],
+                    center=v["center"],
+                    theta_i=v["theta_i"],
+                    theta_d=v["theta_d"],
+                    crystal_roll=v["crystal_roll"],
+                    crystal_yaw=v["crystal_yaw"],
                 )
             return cls(
                 calibrations=calibrations,
                 software=data.get("software", {}),
                 parameters=data.get("parameters", {}),
+                R=data["R"],
+                Rd=data["Rd"],
+                pixel_pitch=data["pixel_pitch"],
             )
 
     @classmethod
-    def from_text(cls, stream: str | Path | TextIO) -> Self:
+    def from_text(
+        cls,
+        stream: str | Path | TextIO,
+        bank_defaults: dict[str, Any] | None = None,
+        spectra_defaults: dict[str, Any] | None = None
+    ) -> Self:
         """
         Read BankCalibration from a text file.
 
@@ -283,6 +329,12 @@ class BankCalibration:
         stream : str, Path, or TextIO
             The input file path or stream containing CSV data with calibration parameters.
             If a string or Path, the file will be opened and closed automatically.
+        bank_defaults : dict[str, Any], optional
+            Dictionary of default values for missing BankCalibration attributes
+            (R, Rd, pixel_pitch).
+        spectra_defaults : dict[str, Any], optional
+            Dictionary of default values for missing SpectraCalib attributes
+            (center, theta_i, theta_d, crystal_roll, crystal_yaw).
 
         Returns
         -------
@@ -296,6 +348,24 @@ class BankCalibration:
         The offset values are converted from relative deviations to absolute
         offsets using the formula: absolute_offset = 2*(detector_num-1) + deviation.
         """
+        if bank_defaults is None:
+            bank_defaults = {}
+        # mp3 55um pixels
+        bank_defaults.setdefault('pixel_pitch', 0.055)
+        # in mm
+        bank_defaults.setdefault('R', 910)
+        # in mm
+        bank_defaults.setdefault('Rd', 120)
+        if spectra_defaults is None:
+            spectra_defaults = {}
+
+        # center of mp3
+        spectra_defaults.setdefault("center", 128)
+        # perfectly aligned!
+        spectra_defaults.setdefault("crystal_roll", 0)
+        spectra_defaults.setdefault("crystal_yaw", 0)
+
+
         with ExitStack() as stack:
             if isinstance(stream, (str, Path)):
                 stream = stack.enter_context(open(stream))
@@ -327,9 +397,32 @@ class BankCalibration:
                 expected_offset = 2 * (detector_num - 1)
                 absolute_offset = expected_offset + offset_deviation
 
-                # Create calibration
+                # Create calibration with spectra defaults applied
+                spectra_data = {
+                    "offset": absolute_offset,
+                    "scale": scale,
+                    "wavelength": wavelength,
+                }
+
+                # Apply spectra-level defaults
+                for spec_k, spec_val in spectra_defaults.items():
+                    spectra_data.setdefault(spec_k, spec_val)
+
+                # assumes Si 111
+                theta_bragg = np.rad2deg(np.arcsin(wavelength / (2 * 3.1355 )))
+                spectra_data.setdefault('theta_i', theta_bragg)
+                # assume perfectly aligned detector
+                spectra_data.setdefault('theta_d', 2*spectra_data['theta_i'])
+
                 calibrations[detector_num] = SpectraCalib(
-                    offset=absolute_offset, scale=scale, wavelength=wavelength
+                    offset=spectra_data["offset"],
+                    scale=spectra_data["scale"],
+                    wavelength=spectra_data["wavelength"],
+                    center=spectra_data["center"],
+                    theta_i=spectra_data["theta_i"],
+                    theta_d=spectra_data["theta_d"],
+                    crystal_roll=spectra_data["crystal_roll"],
+                    crystal_yaw=spectra_data["crystal_yaw"],
                 )
 
                 # Store calibration source
@@ -348,8 +441,16 @@ class BankCalibration:
                 )
                 parameters["calibration_source"] = base_name
 
+            # Apply bank-level defaults
+            bank_data: dict[str, Any] = {}
+            for bank_k, bank_val in bank_defaults.items():
+                bank_data.setdefault(bank_k, bank_val)
+
             return cls(
                 calibrations=calibrations,
                 software={},
                 parameters=parameters,
+                R=bank_data["R"],
+                Rd=bank_data["Rd"],
+                pixel_pitch=bank_data["pixel_pitch"],
             )
