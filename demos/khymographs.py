@@ -199,7 +199,14 @@ def main():
 
         calibrations = {
             det: SpectraCalib(
-                offset=offset, scale=default_scale, wavelength=default_wavelength
+                offset=offset,
+                scale=default_scale,
+                wavelength=default_wavelength,
+                center=128,  # center of mp3 detector
+                theta_i=np.rad2deg(np.arcsin(default_wavelength / (2 * 3.1355))),  # Si 111 Bragg angle
+                theta_d=2 * np.rad2deg(np.arcsin(default_wavelength / (2 * 3.1355))),  # perfectly aligned detector
+                crystal_roll=0.0,  # perfectly aligned crystal
+                crystal_yaw=0.0,   # perfectly aligned crystal
             )
             for det, offset in offsets.items()
         }
@@ -217,6 +224,9 @@ def main():
                 "default_wavelength_nm": default_wavelength,
                 "default_scale": default_scale,
             },
+            R=910.0,  # Sample to analyzer distance in mm
+            Rd=120.0,  # Analyzer to detector distance in mm
+            pixel_pitch=0.055,  # Pixel pitch in mm (mp3 55um pixels)
         )
     calibs = calibration_config.calibrations
 
