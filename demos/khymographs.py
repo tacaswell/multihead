@@ -203,10 +203,15 @@ def main():
                 scale=default_scale,
                 wavelength=default_wavelength,
                 center=128,  # center of mp3 detector
-                theta_i=np.rad2deg(np.arcsin(default_wavelength / (2 * 3.1355))),  # Si 111 Bragg angle
-                theta_d=2 * np.rad2deg(np.arcsin(default_wavelength / (2 * 3.1355))),  # perfectly aligned detector
+                theta_i=np.rad2deg(
+                    np.arcsin(default_wavelength / (2 * 3.1355))
+                ),  # Si 111 Bragg angle
+                theta_d=2
+                * np.rad2deg(
+                    np.arcsin(default_wavelength / (2 * 3.1355))
+                ),  # perfectly aligned detector
                 crystal_roll=0.0,  # perfectly aligned crystal
-                crystal_yaw=0.0,   # perfectly aligned crystal
+                crystal_yaw=0.0,  # perfectly aligned crystal
             )
             for det, offset in offsets.items()
         }

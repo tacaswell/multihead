@@ -324,7 +324,7 @@ def load_det(
 
 
 def open_data(fname: str | Path, version: int) -> HRDRawBase:
-    t : HRDRawBase
+    t: HRDRawBase
     if version == 1:
         t = HRDRawV1.from_root(fname)
     elif version == 2:

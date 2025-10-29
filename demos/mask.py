@@ -134,7 +134,7 @@ def make_interaction(
     images: dict[tuple[int, int], AxesImage],
     f: str,
     calib_root: Path,
-    outname: Path | None=None
+    outname: Path | None = None,
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
@@ -182,19 +182,20 @@ def make_interaction(
     )
     if outname is None:
         outname = Path(f).name
+
     def _on_save(event):  # noqa: ARG001
         compute_kwargs = dict(
             th=int(th_slider.val),
             closing_radius=int(closing_slider.val),
             opening_radius=int(opening_slider.val),
-            source_file=str(Path(f).name)
+            source_file=str(Path(f).name),
         )
         res = compute_rois(sums, **compute_kwargs)
         print(res)
         roi_root = calib_root / "rois"
         roi_root.mkdir(exist_ok=True, parents=True)
         output_file = roi_root / f"{outname}.yaml"
-        print(output_file, '****')
+        print(output_file, "****")
         with open(output_file, "w") as stream:
             res.to_yaml(stream)
         print(f"wrote to {output_file}")
@@ -229,10 +230,8 @@ def parse_args():
         help="List of threshold values",
     )
     parser.add_argument(
-        "--calib-root",
-        type=Path,
-        help="Location to write configuration to."
-        )
+        "--calib-root", type=Path, help="Location to write configuration to."
+    )
 
     return parser.parse_args()
 
@@ -263,7 +262,7 @@ def main():
         rects,
         images,
         args.filename,
-        args.calib_root
+        args.calib_root,
     )
 
     plt.show()

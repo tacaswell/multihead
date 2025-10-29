@@ -4,14 +4,12 @@ Helpers for processing raw detector images.
 
 from collections.abc import Mapping
 
-
 import numpy as np
 import numpy.typing as npt
 import skimage.measure
-
 from skimage.morphology import isotropic_closing, isotropic_opening
 
-from .config import CrystalROI, SimpleSliceTuple, DetectorROIs
+from .config import CrystalROI, DetectorROIs, SimpleSliceTuple
 
 __all__ = ["compute_rois", "find_crystal_range"]
 

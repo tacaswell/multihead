@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, NamedTuple, Self, TextIO
 
 import numpy as np
-
 import yaml
 
 __all__ = [
@@ -103,6 +102,19 @@ class DetectorROIs:
 
 
 @dataclass
+class AnalyzerConfig:
+    # deg
+    R: float
+    Rd: float
+    theta_i: float
+    theta_d: float
+    crystal_roll: float = 0
+    crystal_yaw: float = 0
+    detector_yaw: float = 0
+    detector_roll: float = 0
+
+
+@dataclass
 class SpectraCalib:
     r"""
     Spectral calibration parameters for a single detector.
@@ -159,11 +171,7 @@ class SpectraCalib:
     wavelength: float
     # pixels
     center: float
-    # deg
-    theta_i: float
-    theta_d: float
-    crystal_roll: float
-    crystal_yaw: float
+    analyzer: AnalyzerConfig
 
 
 @dataclass
@@ -201,8 +209,6 @@ class BankCalibration:
     calibrations: dict[int, SpectraCalib]
     software: dict[str, str]
     parameters: dict[str, Any]
-    R: float
-    Rd: float
     pixel_pitch: float
 
     @property
@@ -243,7 +249,7 @@ class BankCalibration:
         cls,
         stream: str | Path | TextIO,
         bank_defaults: dict[str, Any] | None = None,
-        spectra_defaults: dict[str, Any] | None = None
+        spectra_defaults: dict[str, Any] | None = None,
     ) -> Self:
         """
         Read BankCalibration from a YAML file.
@@ -313,7 +319,7 @@ class BankCalibration:
         cls,
         stream: str | Path | TextIO,
         bank_defaults: dict[str, Any] | None = None,
-        spectra_defaults: dict[str, Any] | None = None
+        spectra_defaults: dict[str, Any] | None = None,
     ) -> Self:
         """
         Read BankCalibration from a text file.
@@ -351,11 +357,11 @@ class BankCalibration:
         if bank_defaults is None:
             bank_defaults = {}
         # mp3 55um pixels
-        bank_defaults.setdefault('pixel_pitch', 0.055)
+        bank_defaults.setdefault("pixel_pitch", 0.055)
         # in mm
-        bank_defaults.setdefault('R', 910)
+        bank_defaults.setdefault("R", 910)
         # in mm
-        bank_defaults.setdefault('Rd', 120)
+        bank_defaults.setdefault("Rd", 120)
         if spectra_defaults is None:
             spectra_defaults = {}
 
@@ -364,7 +370,6 @@ class BankCalibration:
         # perfectly aligned!
         spectra_defaults.setdefault("crystal_roll", 0)
         spectra_defaults.setdefault("crystal_yaw", 0)
-
 
         with ExitStack() as stack:
             if isinstance(stream, (str, Path)):
@@ -409,10 +414,10 @@ class BankCalibration:
                     spectra_data.setdefault(spec_k, spec_val)
 
                 # assumes Si 111
-                theta_bragg = np.rad2deg(np.arcsin(wavelength / (2 * 3.1355 )))
-                spectra_data.setdefault('theta_i', theta_bragg)
+                theta_bragg = np.rad2deg(np.arcsin(wavelength / (2 * 3.1355)))
+                spectra_data.setdefault("theta_i", theta_bragg)
                 # assume perfectly aligned detector
-                spectra_data.setdefault('theta_d', 2*spectra_data['theta_i'])
+                spectra_data.setdefault("theta_d", 2 * spectra_data["theta_i"])
 
                 calibrations[detector_num] = SpectraCalib(
                     offset=spectra_data["offset"],

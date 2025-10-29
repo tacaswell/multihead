@@ -9,28 +9,20 @@ from multihead.raw_proc import DetectorROIs, compute_rois
 def test_roi_yaml_roundtrip():
     # Create test data
     crystal_roi = CrystalROI(
-        rslc=SimpleSliceTuple(10, 20),
-        cslc=SimpleSliceTuple(30, 40)
+        rslc=SimpleSliceTuple(10, 20), cslc=SimpleSliceTuple(30, 40)
     )
     detector_rois = DetectorROIs(
         rois={
             1: crystal_roi,
-            2: CrystalROI(
-                rslc=SimpleSliceTuple(50, 60),
-                cslc=SimpleSliceTuple(70, 80)
-            )
+            2: CrystalROI(rslc=SimpleSliceTuple(50, 60), cslc=SimpleSliceTuple(70, 80)),
         },
         software={
             "name": "multihead-test",
             "version": "test-version",
             "function": "test_function",
-            "module": "test_module"
+            "module": "test_module",
         },
-        parameters={
-            "threshold": 2,
-            "closing_radius": 10,
-            "opening_radius": 10
-        }
+        parameters={"threshold": 2, "closing_radius": 10, "opening_radius": 10},
     )
 
     # Serialize to YAML
@@ -61,7 +53,7 @@ def test_compute_rois_metadata():
     # Create dummy data
     sums = {
         1: np.zeros((100, 100), dtype=np.int32),
-        2: np.zeros((100, 100), dtype=np.int32)
+        2: np.zeros((100, 100), dtype=np.int32),
     }
     # Add some signal to trigger ROI detection
     sums[1][10:20, 30:40] = 10
@@ -74,10 +66,7 @@ def test_compute_rois_metadata():
 
     # Compute ROIs
     detector_rois = compute_rois(
-        sums,
-        th=th,
-        closing_radius=closing_radius,
-        opening_radius=opening_radius
+        sums, th=th, closing_radius=closing_radius, opening_radius=opening_radius
     )
 
     # Verify software metadata
