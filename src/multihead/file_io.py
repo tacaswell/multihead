@@ -44,6 +44,7 @@ class MDA:
 class HRDRawBase:
     _detector_map: dict[int, tuple[int, int]]
     _data_path: ClassVar[str] = "/entry/data/data"
+    _h5_file: h5py.File
 
     def __init__(
         self,
@@ -92,7 +93,6 @@ class HRDRawBase:
 
 
 class HRDRawV1(HRDRawBase):
-    _h5_file: h5py.File
     _mda: MDA
 
     def __init__(self, mda_path: Path, image_path: Path, **kwargs):
