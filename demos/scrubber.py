@@ -57,7 +57,6 @@ class ImageScrubber:
 
         # Cache detector data to avoid repeated loading
         self._detector_cache = {}
-        self._roi_cache = {}
 
         # Initialize ROIs for all detectors - merge static/dynamic into single structure
         self._detector_rois: dict[int, CrystalROI] = {}
@@ -234,20 +233,15 @@ class ImageScrubber:
         return self._detector_cache[detector_num]
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
-        """Get ROI sum for a detector with caching."""
-        cache_key = (detector_num, id(self._detector_rois[detector_num]))
+        """Get ROI sum for a detector."""
+        detector_data = self._get_detector_data(detector_num)
+        current_roi = self._detector_rois[detector_num]
 
-        if cache_key not in self._roi_cache:
-            detector_data = self._get_detector_data(detector_num)
-            current_roi = self._detector_rois[detector_num]
+        rslc, cslc = current_roi.to_slices()
+        roi_data = detector_data[:, rslc, cslc]
 
-            rslc, cslc = current_roi.to_slices()
-            roi_data = detector_data[:, rslc, cslc]
-
-            # Sum over spatial dimensions for each frame
-            self._roi_cache[cache_key] = roi_data.sum(axis=(1, 2))
-
-        return self._roi_cache[cache_key]
+        # Sum over spatial dimensions for each frame
+        return roi_data.sum(axis=(1, 2))
 
     def _get_frame_sum_image(
         self, detector_num: int, start_frame: int, end_frame: int
@@ -352,11 +346,6 @@ class ImageScrubber:
         )
 
         self._detector_rois[self.current_detector] = new_roi
-
-        # Clear ROI cache for this detector to force recalculation
-        keys_to_remove = [key for key in self._roi_cache.keys() if key[0] == self.current_detector]
-        for key in keys_to_remove:
-            del self._roi_cache[key]
 
         # Update displays
         self._update_line_plot()
@@ -514,7 +503,6 @@ class ImageScrubber:
                 self.current_detector, self.frame_start, self.frame_end
             )
 
-
             threshold = 15
             photon_mask = summed_image > threshold
 
@@ -525,11 +513,6 @@ class ImageScrubber:
 
             # Update the ROI for current detector
             self._detector_rois[self.current_detector] = detected_roi
-
-            # Clear ROI cache for this detector to force recalculation
-            keys_to_remove = [key for key in self._roi_cache if key[0] == self.current_detector]
-            for key in keys_to_remove:
-                del self._roi_cache[key]
 
             # Update displays
             self._update_line_plot()
