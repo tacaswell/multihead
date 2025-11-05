@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Self, cast
 
 import h5py
+import hdf5plugin  # noqa: F401
 import numpy as np
 import numpy.typing as npt
 import tqdm
