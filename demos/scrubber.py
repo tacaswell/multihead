@@ -132,7 +132,7 @@ class ImageScrubber:
             minspany=5,
             spancoords='pixels',
             interactive=True,
-            props=dict(alpha=0.3, facecolor="blue", edgecolor="blue", linewidth=2),
+            props=dict(alpha=0.3, facecolor="None", edgecolor="blue", linewidth=2),
         )
 
         # Span selector for frame range selection
