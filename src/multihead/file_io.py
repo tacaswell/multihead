@@ -234,11 +234,13 @@ def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
     """
     Re-chunk the main detector array
     """
-    target_chunks = (n_frames, 260, 260)
     with h5py.File(file_in, "a") as fin:
         source_dsname = "/entry/instrument/detector/data"
         dest_dsname = "/entry/data/data"
         read_ds = cast(h5py.Dataset, fin[source_dsname])
+
+        actual_chunk_size = min(read_ds.shape[0], n_frames)
+        target_chunks = (actual_chunk_size, 260, 260)
 
         if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:
             return
@@ -259,8 +261,8 @@ def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
             dtype=read_ds.dtype,
         )
 
-        for j in tqdm.tqdm(range(len(read_ds) // n_frames + 1), desc="re-chunking"):
-            slc = slice(j * n_frames, (j + 1) * n_frames)
+        for j in tqdm.tqdm(range(len(read_ds) // actual_chunk_size + 1), desc="re-chunking"):
+            slc = slice(j * actual_chunk_size, (j + 1) * actual_chunk_size)
             dataset[slc] = read_ds[slc]
         del read_ds
         del fin[source_dsname]

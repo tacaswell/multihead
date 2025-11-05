@@ -55,7 +55,7 @@ def main():
             except Exception as e:
                 current_file = None
                 failed_files.append((file_path, e))
-                print(f"\nError processing {file_path}: {e}")
+                tqdm.tqdm.write(f"Error processing {file_path}: {e}")
     except KeyboardInterrupt:
         print("\n\nProcessing interrupted by user!")
         print(f"Successfully processed {len(processed_files)} files:")
