@@ -15,6 +15,7 @@ from matplotlib.backends.qt_compat import QtWidgets
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase
+from multihead.raw_proc import find_crystal_range
 
 
 class ImageScrubber:
@@ -176,6 +177,11 @@ class ImageScrubber:
         save_roi_ax = plt.axes((0.25, 0.05, 0.08, 0.04))
         self.save_roi_button = Button(save_roi_ax, "Save ROI")
         self.save_roi_button.on_clicked(self._on_save_roi)
+
+        # Auto ROI button
+        auto_roi_ax = plt.axes((0.34, 0.05, 0.08, 0.04))
+        self.auto_roi_button = Button(auto_roi_ax, "Auto ROI")
+        self.auto_roi_button.on_clicked(self._on_auto_roi)
 
         # Width info text - moved to right side to avoid button overlap
         self.width_text = self.nav_ax.text(
@@ -499,6 +505,44 @@ class ImageScrubber:
     def _on_save(self, event):  # noqa: ARG002
         """Legacy save method - redirect to save data."""
         self._on_save_data(event)
+
+    def _on_auto_roi(self, event):  # noqa: ARG002
+        """Handle auto ROI button click - automatically detect ROI using find_crystal_range."""
+        try:
+            # Get current summed image
+            summed_image = self._get_frame_sum_image(
+                self.current_detector, self.frame_start, self.frame_end
+            )
+
+
+            threshold = 15
+            photon_mask = summed_image > threshold
+
+            # Use find_crystal_range to detect ROI
+            mask, detected_roi = find_crystal_range(
+                photon_mask, opening_radius=5, closing_radius=10
+            )
+
+            # Update the ROI for current detector
+            self._detector_rois[self.current_detector] = detected_roi
+
+            # Clear ROI cache for this detector to force recalculation
+            keys_to_remove = [key for key in self._roi_cache if key[0] == self.current_detector]
+            for key in keys_to_remove:
+                del self._roi_cache[key]
+
+            # Update displays
+            self._update_line_plot()
+            self._update_image()
+            self.fig.canvas.draw_idle()
+
+            print(f"Auto-detected ROI for detector {self.current_detector}: "
+                  f"rows {detected_roi.rslc.start}-{detected_roi.rslc.stop}, "
+                  f"cols {detected_roi.cslc.start}-{detected_roi.cslc.stop}")
+
+        except Exception as e:
+            print(f"Error in auto ROI detection: {e}")
+            print("Try adjusting the frame range or manually selecting an ROI")
 
     def show(self):
         """Display the scrubber interface."""
