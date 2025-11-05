@@ -11,6 +11,7 @@ import numpy as np
 import yaml
 
 __all__ = [
+    "AnalyzerConfig",
     "BankCalibration",
     "CrystalROI",
     "DetectorROIs",
@@ -103,44 +104,25 @@ class DetectorROIs:
 
 @dataclass
 class AnalyzerConfig:
-    # deg
-    R: float
-    Rd: float
-    theta_i: float
-    theta_d: float
-    crystal_roll: float = 0
-    crystal_yaw: float = 0
-    detector_yaw: float = 0
-    detector_roll: float = 0
-
-
-@dataclass
-class SpectraCalib:
     r"""
-    Spectral calibration parameters for a single detector.
+    Analyzer crystal configuration and geometry parameters.
 
     Attributes
     ----------
-    offset : float
-        Angular offset in degrees from arm
+    R : float
+        Sample to analyzer distance, mm
 
-       *psi* in multianalyzer code
-    scale : float
-        Scale factor, arbitrary units near 1.  Accounts for different response of
-        analyzer crystal and detector.
-    wavelength : float
-        Wavelength per analyzer in angstrom (Å).
+        $L$ in Fitch 2021 Fig 2
+        *L* in multianalyzer code
+    Rd : float
+        Analyzer to detector distance, mm
 
-        Due to slight differences in alignment, each analyzer crystal has a
-        slightly different average energy of photons passed.
-    center : float
-        Where the beam with phi=0 hits the detector.
-
-        *center* in multianalyzer code
+        $L2$ in Fitch 2021 Fig 2
+        *L2* in multianalyzer code
     theta_i : float
         The incident angle of the xrays on the analyzer crystal in deg.
 
-        This is effectively the cyrstal pitch
+        This is effectively the crystal pitch
 
         $\theta_a$ in Fitch 2021 Fig 2
         *tha* in multianalyzer code
@@ -161,6 +143,51 @@ class SpectraCalib:
 
         $\vartheta_y$ in Fitch 2021 Fig 2
         *rolly* in multianalyzer code
+    detector_yaw : float
+        The yaw miss-alignment of the detector in deg
+    detector_roll : float
+        The roll miss-alignment of the detector in deg
+    center : float
+        Where the beam with phi=0 hits the detector.
+
+        *center* in multianalyzer code
+    """
+
+    # mm
+    R: float
+    Rd: float
+    # degrees
+    theta_i: float
+    theta_d: float
+    crystal_roll: float = 0
+    crystal_yaw: float = 0
+    detector_yaw: float = 0
+    detector_roll: float = 0
+    # pixels
+    center: float = 0
+
+
+@dataclass
+class SpectraCalib:
+    """
+    Spectral calibration parameters for a single detector.
+
+    Attributes
+    ----------
+    offset : float
+        Angular offset in degrees from arm
+
+       *psi* in multianalyzer code
+    scale : float
+        Scale factor, arbitrary units near 1.  Accounts for different response of
+        analyzer crystal and detector.
+    wavelength : float
+        Wavelength per analyzer in angstrom (Å).
+
+        Due to slight differences in alignment, each analyzer crystal has a
+        slightly different average energy of photons passed.
+    analyzer : AnalyzerConfig
+        Analyzer crystal configuration and geometry parameters.
     """
 
     # degrees
@@ -169,8 +196,6 @@ class SpectraCalib:
     scale: float
     # Å
     wavelength: float
-    # pixels
-    center: float
     analyzer: AnalyzerConfig
 
 
@@ -190,16 +215,6 @@ class BankCalibration:
         Software metadata including version, name, etc.
     parameters : dict[str, int | str]
         Processing parameters including number of detectors, calibration source, etc.
-    R : float
-        Sample to analyzer distance, mm
-
-        $L$ in Fitch 2021 Fig 2
-        *L* in multianalyzer code
-    Rd : float
-        Analyzer to detector distance, mm
-
-        $L2$ in Fitch 2021 Fig 2
-        *L2* in multianalyzer code
     pixel_pitch : float
         Pixel pitch in mm
 
@@ -234,8 +249,6 @@ class BankCalibration:
             data = {
                 "software": self.software,
                 "parameters": self.parameters,
-                "R": self.R,
-                "Rd": self.Rd,
                 "pixel_pitch": self.pixel_pitch,
                 "calibrations": [
                     {"detector_number": k, "calibration": asdict(v)}
@@ -261,10 +274,10 @@ class BankCalibration:
             If a string or Path, the file will be opened and closed automatically.
         bank_defaults : dict[str, Any], optional
             Dictionary of default values for missing BankCalibration attributes
-            (R, Rd, pixel_pitch).
+            (pixel_pitch).
         spectra_defaults : dict[str, Any], optional
-            Dictionary of default values for missing SpectraCalib attributes
-            (center, theta_i, theta_d, crystal_roll, crystal_yaw).
+            Dictionary of default values for missing SpectraCalib or AnalyzerConfig attributes
+            (center, R, Rd, theta_i, theta_d, crystal_roll, crystal_yaw, detector_yaw, detector_roll).
 
         Returns
         -------
@@ -295,22 +308,30 @@ class BankCalibration:
                 for spec_k, spec_val in spectra_defaults.items():
                     v.setdefault(spec_k, spec_val)
 
+                # Create AnalyzerConfig from nested analyzer data
+                analyzer_data = v["analyzer"]
+                analyzer = AnalyzerConfig(
+                    R=analyzer_data["R"],
+                    Rd=analyzer_data["Rd"],
+                    theta_i=analyzer_data["theta_i"],
+                    theta_d=analyzer_data["theta_d"],
+                    crystal_roll=analyzer_data["crystal_roll"],
+                    crystal_yaw=analyzer_data["crystal_yaw"],
+                    detector_yaw=analyzer_data["detector_yaw"],
+                    detector_roll=analyzer_data["detector_roll"],
+                    center=analyzer_data["center"],
+                )
+
                 calibrations[int(k)] = SpectraCalib(
                     offset=v["offset"],
                     scale=v["scale"],
                     wavelength=v["wavelength"],
-                    center=v["center"],
-                    theta_i=v["theta_i"],
-                    theta_d=v["theta_d"],
-                    crystal_roll=v["crystal_roll"],
-                    crystal_yaw=v["crystal_yaw"],
+                    analyzer=analyzer,
                 )
             return cls(
                 calibrations=calibrations,
-                software=data.get("software", {}),
-                parameters=data.get("parameters", {}),
-                R=data["R"],
-                Rd=data["Rd"],
+                software=data["software"],
+                parameters=data["parameters"],
                 pixel_pitch=data["pixel_pitch"],
             )
 
@@ -336,11 +357,11 @@ class BankCalibration:
             The input file path or stream containing CSV data with calibration parameters.
             If a string or Path, the file will be opened and closed automatically.
         bank_defaults : dict[str, Any], optional
-            Dictionary of default values for missing BankCalibration attributes
+            Dictionary of default values for missing AnalyzerConfig attributes
             (R, Rd, pixel_pitch).
         spectra_defaults : dict[str, Any], optional
             Dictionary of default values for missing SpectraCalib attributes
-            (center, theta_i, theta_d, crystal_roll, crystal_yaw).
+            (center, crystal_roll, crystal_yaw, detector_yaw, detector_roll).
 
         Returns
         -------
@@ -419,15 +440,24 @@ class BankCalibration:
                 # assume perfectly aligned detector
                 spectra_data.setdefault("theta_d", 2 * spectra_data["theta_i"])
 
-                calibrations[detector_num] = SpectraCalib(
-                    offset=spectra_data["offset"],
-                    scale=spectra_data["scale"],
-                    wavelength=spectra_data["wavelength"],
-                    center=spectra_data["center"],
+                # Create AnalyzerConfig with defaults from bank_defaults and calculated values
+                analyzer = AnalyzerConfig(
+                    R=bank_defaults["R"],
+                    Rd=bank_defaults["Rd"],
                     theta_i=spectra_data["theta_i"],
                     theta_d=spectra_data["theta_d"],
                     crystal_roll=spectra_data["crystal_roll"],
                     crystal_yaw=spectra_data["crystal_yaw"],
+                    detector_yaw=spectra_data["detector_yaw"],
+                    detector_roll=spectra_data["detector_roll"],
+                    center=spectra_data["center"],
+                )
+
+                calibrations[detector_num] = SpectraCalib(
+                    offset=spectra_data["offset"],
+                    scale=spectra_data["scale"],
+                    wavelength=spectra_data["wavelength"],
+                    analyzer=analyzer,
                 )
 
                 # Store calibration source
@@ -455,7 +485,5 @@ class BankCalibration:
                 calibrations=calibrations,
                 software={},
                 parameters=parameters,
-                R=bank_data["R"],
-                Rd=bank_data["Rd"],
                 pixel_pitch=bank_data["pixel_pitch"],
             )
