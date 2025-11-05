@@ -235,48 +235,59 @@ def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
     """
     Re-chunk the main detector array
     """
-    with h5py.File(file_in, "a") as fin:
-        source_dsname = "/entry/instrument/detector/data"
-        dest_dsname = "/entry/data/data"
-        read_ds = cast(h5py.Dataset, fin[source_dsname])
+    file_path = Path(file_in)
+    working_copy = file_path.with_suffix(file_path.suffix + ".working")
+    repacked_file = file_path.with_suffix(file_path.suffix + ".repacked")
 
-        actual_chunk_size = min(read_ds.shape[0], n_frames)
-        target_chunks = (actual_chunk_size, 260, 260)
-
-        if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:
-            return
-
-        # block_size = 0 let Bitshuffle choose its value
-        block_size = 0
-
-        try:
-            del fin[dest_dsname]
-        except KeyError:
-            ...
-        dataset = fin.create_dataset(
-            dest_dsname,
-            shape=read_ds.shape,
-            chunks=target_chunks,
-            compression=32008,
-            compression_opts=(block_size, 2),
-            dtype=read_ds.dtype,
-        )
-
-        for j in tqdm.tqdm(range(len(read_ds) // actual_chunk_size + 1), desc="re-chunking"):
-            slc = slice(j * actual_chunk_size, (j + 1) * actual_chunk_size)
-            dataset[slc] = read_ds[slc]
-        del read_ds
-        del fin[source_dsname]
-        fin[source_dsname] = fin[dest_dsname]
-
-    cache_name = Path(file_in).with_suffix(".cache")
-    shutil.move(file_in, cache_name)
     try:
-        subprocess.run(["h5repack", cache_name, file_in], check=True)
-    except BaseException:
-        shutil.move(cache_name, file_in)
-    else:
-        cache_name.unlink()
+        # Create working copy
+        shutil.copy2(file_in, working_copy)
+
+        with h5py.File(working_copy, "a") as fin:
+            source_dsname = "/entry/instrument/detector/data"
+            dest_dsname = "/entry/data/data"
+            read_ds = cast(h5py.Dataset, fin[source_dsname])
+
+            actual_chunk_size = min(read_ds.shape[0], n_frames)
+            target_chunks = (actual_chunk_size, 260, 260)
+
+            if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:
+                return
+
+            # block_size = 0 let Bitshuffle choose its value
+            block_size = 0
+
+            try:
+                del fin[dest_dsname]
+            except KeyError:
+                ...
+            dataset = fin.create_dataset(
+                dest_dsname,
+                shape=read_ds.shape,
+                chunks=target_chunks,
+                compression=32008,
+                compression_opts=(block_size, 2),
+                dtype=read_ds.dtype,
+            )
+
+            for j in tqdm.tqdm(range(len(read_ds) // actual_chunk_size + 1), desc="re-chunking"):
+                slc = slice(j * actual_chunk_size, (j + 1) * actual_chunk_size)
+                dataset[slc] = read_ds[slc]
+            del read_ds
+            del fin[source_dsname]
+            fin[source_dsname] = fin[dest_dsname]
+
+        # Repack the working copy
+        subprocess.run(["h5repack", working_copy, repacked_file], check=True)
+
+        # Atomically replace the original file
+        repacked_file.replace(file_path)
+
+    finally:
+        # Clean up temporary files
+        for temp_file in [working_copy, repacked_file]:
+            if temp_file.exists():
+                temp_file.unlink()
 
 
 def det_slice(n: int, m: int, *, pad: int = 4, npix: int = 256) -> tuple[slice, slice]:
