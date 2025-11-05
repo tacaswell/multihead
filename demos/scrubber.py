@@ -37,10 +37,9 @@ class ImageScrubber:
         raw : HRDRawBase
             The raw data object containing detector images and metadata
         detector_rois : DetectorROIs, optional
-            ROI definitions for each detector. If None, full detector area is used.
+            ROI definitions for each detector. If None, center 240x240 pixel ROIs are used.
         """
         self.raw = raw
-        self.detector_rois = detector_rois
 
         # Get available detectors from the raw data mapping
         self.detector_numbers = sorted(self.raw._detector_map.keys())
@@ -59,8 +58,9 @@ class ImageScrubber:
         self._detector_cache = {}
         self._roi_cache = {}
 
-        # Store current dynamic ROI for each detector (separate from static ROIs)
-        self._dynamic_rois = {}
+        # Initialize ROIs for all detectors - merge static/dynamic into single structure
+        self._detector_rois: dict[int, CrystalROI] = {}
+        self._initialize_detector_rois(detector_rois)
 
         # Create the UI
         self._setup_figure()
@@ -69,6 +69,19 @@ class ImageScrubber:
         # Initialize matplotlib objects that will be updated
         self._init_plot_objects()
         self._update_display()
+
+    def _initialize_detector_rois(self, detector_rois: DetectorROIs | None):
+        """Initialize ROIs for all detectors, using provided config or defaults."""
+        for detector_num in self.detector_numbers:
+            if detector_rois and detector_num in detector_rois.rois:
+                # Use provided ROI
+                self._detector_rois[detector_num] = detector_rois.rois[detector_num]
+            else:
+                # Create default ROI: 6-250 in each direction for 256x256 detectors
+                self._detector_rois[detector_num] = CrystalROI(
+                    rslc=SimpleSliceTuple(6, 250),
+                    cslc=SimpleSliceTuple(6, 250)
+                )
 
     def _setup_figure(self):
         """Setup the matplotlib figure and axes."""
@@ -216,35 +229,19 @@ class ImageScrubber:
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
         """Get ROI sum for a detector with caching."""
-        cache_key = (detector_num, id(self._get_current_roi(detector_num)))
+        cache_key = (detector_num, id(self._detector_rois[detector_num]))
 
         if cache_key not in self._roi_cache:
             detector_data = self._get_detector_data(detector_num)
-            current_roi = self._get_current_roi(detector_num)
+            current_roi = self._detector_rois[detector_num]
 
-            if current_roi:
-                rslc, cslc = current_roi.to_slices()
-                roi_data = detector_data[:, rslc, cslc]
-            else:
-                # Use full detector if no ROI defined
-                roi_data = detector_data
+            rslc, cslc = current_roi.to_slices()
+            roi_data = detector_data[:, rslc, cslc]
 
             # Sum over spatial dimensions for each frame
             self._roi_cache[cache_key] = roi_data.sum(axis=(1, 2))
 
         return self._roi_cache[cache_key]
-
-    def _get_current_roi(self, detector_num: int) -> CrystalROI | None:
-        """Get the current ROI for a detector (dynamic if available, otherwise static)."""
-        # Prefer dynamic ROI if available
-        if detector_num in self._dynamic_rois:
-            return self._dynamic_rois[detector_num]
-
-        # Fall back to static ROI
-        if self.detector_rois and detector_num in self.detector_rois.rois:
-            return self.detector_rois.rois[detector_num]
-
-        return None
 
     def _get_frame_sum_image(
         self, detector_num: int, start_frame: int, end_frame: int
@@ -279,36 +276,17 @@ class ImageScrubber:
         # Update colorbar
         self._colorbar.update_normal(self.image_obj)
 
-        # Update ROI rectangle if available (static ROI in red)
-        if self.detector_rois and self.current_detector in self.detector_rois.rois:
-            roi = self.detector_rois.rois[self.current_detector]
-            self.roi_rect.set_xy((roi.cslc.start, roi.rslc.start))
-            self.roi_rect.set_width(roi.cslc.stop - roi.cslc.start)
-            self.roi_rect.set_height(roi.rslc.stop - roi.rslc.start)
-            self.roi_rect.set_visible(True)
-        else:
-            self.roi_rect.set_visible(False)
+        # Update ROI rectangle and rectangle selector - now always visible
+        current_roi = self._detector_rois[self.current_detector]
+        self.roi_rect.set_xy((current_roi.cslc.start, current_roi.rslc.start))
+        self.roi_rect.set_width(current_roi.cslc.stop - current_roi.cslc.start)
+        self.roi_rect.set_height(current_roi.rslc.stop - current_roi.rslc.start)
+        self.roi_rect.set_visible(True)
 
-        # Update dynamic ROI rectangle if available (current selection in blue)
-        if self.current_detector in self._dynamic_rois:
-            dynamic_roi = self._dynamic_rois[self.current_detector]
-            self.dynamic_roi_rect.set_xy((dynamic_roi.cslc.start, dynamic_roi.rslc.start))
-            self.dynamic_roi_rect.set_width(dynamic_roi.cslc.stop - dynamic_roi.cslc.start)
-            self.dynamic_roi_rect.set_height(dynamic_roi.rslc.stop - dynamic_roi.rslc.start)
-            self.dynamic_roi_rect.set_visible(True)
-
-            # Update rectangle selector to match current dynamic ROI
-            x1, y1 = dynamic_roi.cslc.start, dynamic_roi.rslc.start
-            x2, y2 = dynamic_roi.cslc.stop, dynamic_roi.rslc.stop
-            self.rect_selector.extents = (x1, x2, y1, y2)
-        else:
-            self.dynamic_roi_rect.set_visible(False)
-            # Initialize with static ROI if available
-            if self.detector_rois and self.current_detector in self.detector_rois.rois:
-                roi = self.detector_rois.rois[self.current_detector]
-                x1, y1 = roi.cslc.start, roi.rslc.start
-                x2, y2 = roi.cslc.stop, roi.rslc.stop
-                self.rect_selector.extents = (x1, x2, y1, y2)
+        # Update rectangle selector to match current ROI
+        x1, y1 = current_roi.cslc.start, current_roi.rslc.start
+        x2, y2 = current_roi.cslc.stop, current_roi.rslc.stop
+        self.rect_selector.extents = (x1, x2, y1, y2)
 
     def _update_line_plot(self):
         """Update the 1D line plot display."""
@@ -361,14 +339,13 @@ class ImageScrubber:
         xmin, xmax = min(x1, x2), max(x1, x2)
         ymin, ymax = min(y1, y2), max(y1, y2)
 
-        # Create new dynamic ROI
+        # Create new ROI and update the unified structure
         new_roi = CrystalROI(
             rslc=SimpleSliceTuple(ymin, ymax),
             cslc=SimpleSliceTuple(xmin, xmax)
         )
 
-        # Store the dynamic ROI for current detector
-        self._dynamic_rois[self.current_detector] = new_roi
+        self._detector_rois[self.current_detector] = new_roi
 
         # Clear ROI cache for this detector to force recalculation
         keys_to_remove = [key for key in self._roi_cache.keys() if key[0] == self.current_detector]
@@ -377,7 +354,7 @@ class ImageScrubber:
 
         # Update displays
         self._update_line_plot()
-        self._update_image()  # This will update the dynamic ROI rectangle
+        self._update_image()
         self.fig.canvas.draw_idle()
 
     def _on_span_select(self, xmin: float, xmax: float):
@@ -424,13 +401,10 @@ class ImageScrubber:
         """Handle save data button click - export ROI sum vs angle data."""
         # Get current ROI data
         roi_sums = self._get_roi_sum(self.current_detector)
-        current_roi = self._get_current_roi(self.current_detector)
+        current_roi = self._detector_rois[self.current_detector]
 
-        # Determine ROI description for filename suggestion
-        if current_roi:
-            roi_desc = f"roi_{current_roi.rslc.start}-{current_roi.rslc.stop}_{current_roi.cslc.start}-{current_roi.cslc.stop}"
-        else:
-            roi_desc = "full_detector"
+        # ROI description for filename suggestion
+        roi_desc = f"roi_{current_roi.rslc.start}-{current_roi.rslc.stop}_{current_roi.cslc.start}-{current_roi.cslc.stop}"
 
         # Suggest filename
         default_filename = f"detector_{self.current_detector}_{roi_desc}_frames_{self.frame_start}-{self.frame_end}.tsv"
@@ -454,20 +428,11 @@ class ImageScrubber:
                     f"# Detector: {self.current_detector}",
                     f"# Frame range: {self.frame_start}-{self.frame_end}",
                     f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
-                ]
-
-                if current_roi:
-                    header_lines.extend([
-                        f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
-                        f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
-                    ])
-                else:
-                    header_lines.append("# ROI: Full detector")
-
-                header_lines.extend([
+                    f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
+                    f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
                     f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
                     ""  # Empty line before data
-                ])
+                ]
 
                 # Write data
                 with open(filename, 'w') as f:
@@ -489,18 +454,8 @@ class ImageScrubber:
 
     def _on_save_roi(self, event):  # noqa: ARG002
         """Handle save ROI button click - export ROI configuration."""
-        # Collect all ROIs (both static and dynamic)
-        all_rois = {}
-
-        # Start with static ROIs if they exist
-        if self.detector_rois:
-            all_rois.update(self.detector_rois.rois)
-
-        # Override with dynamic ROIs where they exist
-        all_rois.update(self._dynamic_rois)
-
-        if not all_rois:
-            print("No ROIs to save. Please select ROIs first or load a configuration file.")
+        if not self._detector_rois:
+            print("No ROIs to save.")
             return
 
         # Suggest filename
@@ -516,9 +471,9 @@ class ImageScrubber:
 
         if filename:
             try:
-                # Create DetectorROIs object with all current ROIs
+                # Create DetectorROIs object with current ROIs
                 detector_rois = DetectorROIs(
-                    rois=all_rois.copy(),
+                    rois=self._detector_rois.copy(),
                     software={
                         "name": "HRD Image Scrubber",
                         "version": "1.0",
@@ -528,17 +483,14 @@ class ImageScrubber:
                         "total_detectors": len(self.detector_numbers),
                         "source": "interactive_selection",
                         "frame_range": f"{self.frame_start}-{self.frame_end}",
-                        "static_rois_count": len(self.detector_rois.rois) if self.detector_rois else 0,
-                        "dynamic_rois_count": len(self._dynamic_rois)
+                        "rois_count": len(self._detector_rois)
                     }
                 )
 
                 # Save to YAML
                 detector_rois.to_yaml(filename)
                 print(f"ROI configuration saved to: {filename}")
-                print(f"  Static ROIs: {len(self.detector_rois.rois) if self.detector_rois else 0}")
-                print(f"  Dynamic ROIs: {len(self._dynamic_rois)}")
-                print(f"  Total ROIs: {len(all_rois)}")
+                print(f"  Total ROIs: {len(self._detector_rois)}")
 
             except Exception as e:
                 print(f"Error saving ROI file: {e}")
