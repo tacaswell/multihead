@@ -5,6 +5,7 @@ This module provides a matplotlib-based interactive interface for exploring
 raw detector data with frame selection capabilities.
 """
 
+import functools
 import matplotlib
 matplotlib.use('qtagg')
 import matplotlib.pyplot as plt
@@ -54,9 +55,6 @@ class ImageScrubber:
         initial_width = max(1, self.n_frames // 10)
         self.frame_start: int = 0
         self.frame_end: int = initial_width
-
-        # Cache detector data to avoid repeated loading
-        self._detector_cache = {}
 
         # Initialize ROIs for all detectors - merge static/dynamic into single structure
         self._detector_rois: dict[int, CrystalROI] = {}
@@ -226,11 +224,10 @@ class ImageScrubber:
         # Setup secondary axis
         self.frame_ax.set_xlabel("Frame Number")
 
+    @functools.lru_cache(maxsize=3)
     def _get_detector_data(self, detector_num: int) -> npt.NDArray[np.uint16]:
-        """Get detector data with caching."""
-        if detector_num not in self._detector_cache:
-            self._detector_cache[detector_num] = self.raw.get_detector(detector_num)
-        return self._detector_cache[detector_num]
+        """Get detector data with caching (max 3 detectors)."""
+        return self.raw.get_detector(detector_num)
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
         """Get ROI sum for a detector."""
