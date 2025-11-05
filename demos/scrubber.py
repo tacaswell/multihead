@@ -5,10 +5,13 @@ This module provides a matplotlib-based interactive interface for exploring
 raw detector data with frame selection capabilities.
 """
 
+import matplotlib
+matplotlib.use('qtagg')
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
+from matplotlib.backends.qt_compat import QtWidgets
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase
@@ -142,18 +145,28 @@ class ImageScrubber:
         self.nav_ax.axis("off")
 
         # Back button
-        back_ax = plt.axes((0.1, 0.05, 0.1, 0.04))
+        back_ax = plt.axes((0.02, 0.05, 0.06, 0.04))
         self.back_button = Button(back_ax, "Back")
         self.back_button.on_clicked(self._on_back)
 
         # Next button
-        next_ax = plt.axes((0.22, 0.05, 0.1, 0.04))
+        next_ax = plt.axes((0.09, 0.05, 0.06, 0.04))
         self.next_button = Button(next_ax, "Next")
         self.next_button.on_clicked(self._on_next)
 
-        # Width info text
+        # Save data button
+        save_data_ax = plt.axes((0.16, 0.05, 0.08, 0.04))
+        self.save_data_button = Button(save_data_ax, "Save Data")
+        self.save_data_button.on_clicked(self._on_save_data)
+
+        # Save ROI button
+        save_roi_ax = plt.axes((0.25, 0.05, 0.08, 0.04))
+        self.save_roi_button = Button(save_roi_ax, "Save ROI")
+        self.save_roi_button.on_clicked(self._on_save_roi)
+
+        # Width info text - moved to right side to avoid button overlap
         self.width_text = self.nav_ax.text(
-            0.5, 0.5, "", ha="center", va="center", transform=self.nav_ax.transAxes
+            0.85, 0.5, "", ha="center", va="center", transform=self.nav_ax.transAxes
         )
 
     def _init_plot_objects(self):
@@ -406,6 +419,134 @@ class ImageScrubber:
         tth_end = self.arm_tth[new_end]
         self.span_selector.extents = (tth_start, tth_end)
         self.span_selector.onselect(tth_start, tth_end)
+
+    def _on_save_data(self, event):  # noqa: ARG002
+        """Handle save data button click - export ROI sum vs angle data."""
+        # Get current ROI data
+        roi_sums = self._get_roi_sum(self.current_detector)
+        current_roi = self._get_current_roi(self.current_detector)
+
+        # Determine ROI description for filename suggestion
+        if current_roi:
+            roi_desc = f"roi_{current_roi.rslc.start}-{current_roi.rslc.stop}_{current_roi.cslc.start}-{current_roi.cslc.stop}"
+        else:
+            roi_desc = "full_detector"
+
+        # Suggest filename
+        default_filename = f"detector_{self.current_detector}_{roi_desc}_frames_{self.frame_start}-{self.frame_end}.tsv"
+
+        # Open file dialog using Qt
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            None,
+            "Save ROI Sum vs Angle Data",
+            default_filename,
+            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;All files (*.*)"
+        )
+
+        if filename:
+            try:
+                # Determine separator based on file extension
+                separator = "\t" if filename.endswith((".tsv", ".txt")) else ","
+
+                # Create header with metadata
+                header_lines = [
+                    f"# HRD Image Scrubber Export",
+                    f"# Detector: {self.current_detector}",
+                    f"# Frame range: {self.frame_start}-{self.frame_end}",
+                    f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
+                ]
+
+                if current_roi:
+                    header_lines.extend([
+                        f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
+                        f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
+                    ])
+                else:
+                    header_lines.append("# ROI: Full detector")
+
+                header_lines.extend([
+                    f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
+                    ""  # Empty line before data
+                ])
+
+                # Write data
+                with open(filename, 'w') as f:
+                    # Write header
+                    for line in header_lines:
+                        f.write(line + "\n")
+
+                    # Write column headers
+                    f.write(f"Arm_2theta_degrees{separator}ROI_Sum\n")
+
+                    # Write data
+                    for angle, intensity in zip(self.arm_tth, roi_sums):
+                        f.write(f"{angle:.6f}{separator}{intensity}\n")
+
+                print(f"Data saved to: {filename}")
+
+            except Exception as e:
+                print(f"Error saving file: {e}")
+
+    def _on_save_roi(self, event):  # noqa: ARG002
+        """Handle save ROI button click - export ROI configuration."""
+        # Collect all ROIs (both static and dynamic)
+        all_rois = {}
+
+        # Start with static ROIs if they exist
+        if self.detector_rois:
+            all_rois.update(self.detector_rois.rois)
+
+        # Override with dynamic ROIs where they exist
+        all_rois.update(self._dynamic_rois)
+
+        if not all_rois:
+            print("No ROIs to save. Please select ROIs first or load a configuration file.")
+            return
+
+        # Suggest filename
+        default_filename = "detector_rois.yaml"
+
+        # Open file dialog using Qt
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(
+            None,
+            "Save ROI Configuration",
+            default_filename,
+            "YAML files (*.yaml *.yml);;All files (*.*)"
+        )
+
+        if filename:
+            try:
+                # Create DetectorROIs object with all current ROIs
+                detector_rois = DetectorROIs(
+                    rois=all_rois.copy(),
+                    software={
+                        "name": "HRD Image Scrubber",
+                        "version": "1.0",
+                        "module": "multihead.demos.scrubber"
+                    },
+                    parameters={
+                        "total_detectors": len(self.detector_numbers),
+                        "source": "interactive_selection",
+                        "frame_range": f"{self.frame_start}-{self.frame_end}",
+                        "static_rois_count": len(self.detector_rois.rois) if self.detector_rois else 0,
+                        "dynamic_rois_count": len(self._dynamic_rois)
+                    }
+                )
+
+                # Save to YAML
+                detector_rois.to_yaml(filename)
+                print(f"ROI configuration saved to: {filename}")
+                print(f"  Static ROIs: {len(self.detector_rois.rois) if self.detector_rois else 0}")
+                print(f"  Dynamic ROIs: {len(self._dynamic_rois)}")
+                print(f"  Total ROIs: {len(all_rois)}")
+
+            except Exception as e:
+                print(f"Error saving ROI file: {e}")
+
+    # Rename the old _on_save method to maintain compatibility
+    def _on_save(self, event):  # noqa: ARG002
+        """Legacy save method - redirect to save data."""
+        self._on_save_data(event)
 
     def show(self):
         """Display the scrubber interface."""

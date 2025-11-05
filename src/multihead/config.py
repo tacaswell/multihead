@@ -38,7 +38,7 @@ class CrystalROI:
 class DetectorROIs:
     rois: dict[int, CrystalROI]
     software: dict[str, str]
-    parameters: dict[str, int]
+    parameters: dict[str, int | str | float]
 
     def to_yaml(self, stream: str | Path | TextIO) -> None:
         """
