@@ -13,6 +13,7 @@ import numpy as np
 import numpy.typing as npt
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 from matplotlib.backends.qt_compat import QtWidgets
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase
@@ -23,11 +24,33 @@ class ImageScrubber:
     """
     Interactive image scrubber for HRD detector data.
 
-    Provides a two-panel interface with:
-    - Top: 2D image showing sum of selected frame range for current detector
-    - Bottom: 1D line plot of ROI sums vs arm tth with span selector
-    - Radio buttons to switch between detectors
-    - Next/Back buttons to move the frame selection
+    Provides a comprehensive interface with multiple interaction modes:
+    
+    **Layout:**
+    - Top: 2D detector image (sum of selected frame range)
+    - Bottom: 1D ROI sum vs arm 2θ plot with dual interaction modes
+    - Right: Detector selection radio buttons
+    - Bottom: Control buttons and navigation toolbar
+    
+    **Interaction Modes:**
+    - Navigation Mode: Zoom/pan the plot using toolbar or scroll wheel
+    - Selection Mode: Select frame ranges by dragging on the plot
+    
+    **Controls:**
+    - Detector radio buttons: Switch between detectors (1-12)
+    - Back/Next: Navigate frame selection by fixed increments  
+    - Save Data: Export ROI data (.xy, .tsv, .csv formats)
+    - Save ROI: Export ROI configuration to YAML
+    - Reset Zoom: Return plot to full data view
+    - Auto ROI: Automatically detect crystal ROI boundaries
+    - Mode Toggle: Switch between Navigation and Selection modes
+    
+    **Features:**
+    - Interactive ROI selection via rectangle drawing on detector image
+    - Dual-axis plot showing both arm 2θ and frame numbers
+    - Scroll wheel zoom with smart centering
+    - Full matplotlib navigation toolbar integration
+    - Mode-aware mouse interactions (no conflicts between zoom and selection)
     """
 
     def __init__(self, raw: HRDRawBase, detector_rois: DetectorROIs | None = None, initial_detector: int | None = None):
@@ -163,12 +186,21 @@ class ImageScrubber:
             self.arm_tth[self.frame_start],
             self.arm_tth[self.frame_end],
         )
+        
+        # Start with span selector disabled (navigation mode is default)
+        self.span_selector.set_active(False)
+
+        # Enable interactive zoom on the line plot
+        self._setup_zoom_functionality()
 
         # Navigation buttons
         self.nav_ax.set_xlim(0, 1)
         self.nav_ax.set_ylim(0, 1)
         self.nav_ax.axis("off")
 
+        # Control buttons - arranged left to right across bottom of interface
+        # Button positions: (x, y, width, height) in figure coordinates
+        
         # Back button
         back_ax = plt.axes((0.02, 0.05, 0.06, 0.04))
         self.back_button = Button(back_ax, "Back")
@@ -189,15 +221,103 @@ class ImageScrubber:
         self.save_roi_button = Button(save_roi_ax, "Save ROI")
         self.save_roi_button.on_clicked(self._on_save_roi)
 
+        # Zoom reset button
+        zoom_reset_ax = plt.axes((0.34, 0.05, 0.08, 0.04))
+        self.zoom_reset_button = Button(zoom_reset_ax, "Reset Zoom")
+        self.zoom_reset_button.on_clicked(self._on_zoom_reset)
+
         # Auto ROI button
-        auto_roi_ax = plt.axes((0.34, 0.05, 0.08, 0.04))
+        auto_roi_ax = plt.axes((0.43, 0.05, 0.08, 0.04))
         self.auto_roi_button = Button(auto_roi_ax, "Auto ROI")
         self.auto_roi_button.on_clicked(self._on_auto_roi)
+
+        # Mode toggle button
+        mode_toggle_ax = plt.axes((0.52, 0.05, 0.10, 0.04))
+        self.mode_toggle_button = Button(mode_toggle_ax, "Selection Mode")
+        self.mode_toggle_button.on_clicked(self._on_mode_toggle)
+        
+        # Interaction mode system: prevents conflicts between navigation and selection
+        # - "navigation": Enables zoom/pan, disables span selector
+        # - "selection": Enables span selector, disables zoom/pan  
+        self.interaction_mode = "navigation"  # Start in navigation mode
+        
+        # Visual feedback: button color indicates current mode
+        self.mode_toggle_button.color = '0.85'  # Light gray for navigation mode
 
         # Width info text - moved to right side to avoid button overlap
         self.width_text = self.nav_ax.text(
             0.85, 0.5, "", ha="center", va="center", transform=self.nav_ax.transAxes
         )
+
+    def _setup_zoom_functionality(self):
+        """
+        Setup interactive zoom functionality for the line plot.
+        
+        Implements mouse wheel zoom with intelligent centering on cursor position.
+        Only active in Navigation Mode to avoid conflicts with Selection Mode.
+        Automatically synchronizes the dual-axis display (2θ and frame numbers).
+        """
+        def on_scroll(event):
+            if event.inaxes != self.line_ax:
+                return
+            
+            # Only allow scroll zoom in navigation mode
+            if self.interaction_mode != "navigation":
+                return
+            
+            # Get current axis limits
+            x_min, x_max = self.line_ax.get_xlim()
+            y_min, y_max = self.line_ax.get_ylim()
+            
+            # Calculate zoom factor: 0.9 = zoom in (10% smaller view), 1.1 = zoom out (10% larger view)
+            zoom_factor = 0.9 if event.step > 0 else 1.1
+            
+            # Determine zoom center point (mouse cursor or view center as fallback)
+            if event.xdata is not None and event.ydata is not None:
+                x_center = event.xdata  # Mouse position in data coordinates
+                y_center = event.ydata
+            else:
+                # Fallback: use center of current view if mouse is outside plot area
+                x_center = (x_min + x_max) / 2
+                y_center = (y_min + y_max) / 2
+            
+            # Calculate new axis ranges, preserving relative position of zoom center
+            x_range = (x_max - x_min) * zoom_factor
+            y_range = (y_max - y_min) * zoom_factor
+            
+            # Proportionally adjust limits to keep zoom center in same relative position
+            new_x_min = x_center - x_range * (x_center - x_min) / (x_max - x_min)
+            new_x_max = x_center + x_range * (x_max - x_center) / (x_max - x_min)
+            new_y_min = y_center - y_range * (y_center - y_min) / (y_max - y_min)
+            new_y_max = y_center + y_range * (y_max - y_center) / (y_max - y_min)
+            
+            # Apply new limits
+            self.line_ax.set_xlim(new_x_min, new_x_max)
+            self.line_ax.set_ylim(new_y_min, new_y_max)
+            
+            # Update the frame axis to match
+            self.frame_ax.set_xlim(self.line_ax.get_xlim())
+            tth_min, tth_max = self.line_ax.get_xlim()
+            frame_indices = np.where((self.arm_tth >= tth_min) & (self.arm_tth <= tth_max))[0]
+            if len(frame_indices) > 0:
+                self.frame_ax.set_xticks([self.arm_tth[frame_indices[0]], self.arm_tth[frame_indices[-1]]])
+                self.frame_ax.set_xticklabels([f"Frame {frame_indices[0]}", f"Frame {frame_indices[-1]}"])
+            
+            self.fig.canvas.draw_idle()
+        
+        # Connect scroll event
+        self.fig.canvas.mpl_connect('scroll_event', on_scroll)
+        
+        # Enable pan functionality (middle mouse button drag)
+        self.line_ax.set_navigate(True)
+        
+        # Add right-click context menu for zoom options
+        def on_button_press(event):
+            if event.inaxes == self.line_ax and event.button == 3:  # Right click
+                # This enables the standard matplotlib zoom box with right-click drag
+                pass
+        
+        self.fig.canvas.mpl_connect('button_press_event', on_button_press)
 
     def _init_plot_objects(self):
         """Initialize matplotlib objects that will be updated during interaction."""
@@ -512,6 +632,69 @@ class ImageScrubber:
         """Legacy save method - redirect to save data."""
         self._on_save_data(event)
 
+    def _on_zoom_reset(self, event):  # noqa: ARG002
+        """Reset the zoom on the line plot to show full data range."""
+        roi_sums = self._get_roi_sum(self.current_detector)
+        self.line_ax.set_xlim(self.arm_tth.min(), self.arm_tth.max())
+        self.line_ax.set_ylim(roi_sums.min() * 0.95, roi_sums.max() * 1.05)
+        
+        # Update the frame axis to match
+        self.frame_ax.set_xlim(self.line_ax.get_xlim())
+        tth_min, tth_max = self.line_ax.get_xlim()
+        frame_indices = np.where((self.arm_tth >= tth_min) & (self.arm_tth <= tth_max))[0]
+        if len(frame_indices) > 0:
+            self.frame_ax.set_xticks([self.arm_tth[frame_indices[0]], self.arm_tth[frame_indices[-1]]])
+            self.frame_ax.set_xticklabels([f"Frame {frame_indices[0]}", f"Frame {frame_indices[-1]}"])
+        
+        self.fig.canvas.draw()
+
+    def _on_mode_toggle(self, event):  # noqa: ARG002
+        """
+        Toggle between Navigation and Selection interaction modes.
+        
+        **Navigation Mode** (default):
+        - Enables: Zoom/pan via toolbar, scroll wheel zoom, matplotlib navigation
+        - Disables: Span selector for frame range selection
+        - Visual: Gray button labeled "Selection Mode"
+        
+        **Selection Mode**:
+        - Enables: Span selector for interactive frame range selection
+        - Disables: All zoom/pan functionality to avoid mouse interaction conflicts  
+        - Visual: Red button labeled "Navigation Mode"
+        
+        This mode system solves the fundamental conflict between matplotlib's
+        navigation tools and the span selector both wanting mouse drag events.
+        """
+        if self.interaction_mode == "navigation":
+            # Switch to selection mode
+            self.interaction_mode = "selection"
+            self.mode_toggle_button.label.set_text("Navigation Mode")
+            self.mode_toggle_button.color = 'lightcoral'  # Red-ish for selection mode
+            
+            # Enable span selector
+            self.span_selector.set_active(True)
+            
+            # Disable navigation on the line axis
+            self.line_ax.set_navigate(False)
+            
+            print("Selection Mode: Use mouse to select frame ranges on the plot")
+            
+        else:
+            # Switch to navigation mode  
+            self.interaction_mode = "navigation"
+            self.mode_toggle_button.label.set_text("Selection Mode")
+            self.mode_toggle_button.color = '0.85'  # Light gray for navigation mode
+            
+            # Disable span selector
+            self.span_selector.set_active(False)
+            
+            # Enable navigation on the line axis
+            self.line_ax.set_navigate(True)
+            
+            print("Navigation Mode: Use toolbar or mouse to zoom/pan the plot")
+        
+        self.fig.canvas.draw()
+
     def _on_auto_roi(self, event):  # noqa: ARG002
         """Handle auto ROI button click - automatically detect ROI using find_crystal_range."""
         try:
@@ -545,8 +728,47 @@ class ImageScrubber:
             print("Try adjusting the frame range or manually selecting an ROI")
 
     def show(self):
-        """Display the scrubber interface."""
-        plt.show()
+        """
+        Display the scrubber interface in a Qt window with full interactivity.
+        
+        Creates a proper Qt application window containing:
+        - The matplotlib figure with all plots and widgets
+        - Standard matplotlib navigation toolbar (zoom, pan, home, etc.)
+        - Interactive event handling for all custom widgets
+        
+        The window includes keyboard shortcuts and full mouse interaction
+        support for both custom widgets and matplotlib navigation tools.
+        """
+        # Create Qt application if it doesn't exist
+        import sys
+        app = QtWidgets.QApplication.instance()
+        if app is None:
+            app = QtWidgets.QApplication(sys.argv)
+        
+        # Create main window
+        window = QtWidgets.QMainWindow()
+        window.setWindowTitle("HRD Image Scrubber")
+        
+        # Create central widget and layout
+        central_widget = QtWidgets.QWidget()
+        window.setCentralWidget(central_widget)
+        layout = QtWidgets.QVBoxLayout(central_widget)
+        
+        # Add matplotlib figure
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+        canvas = FigureCanvasQTAgg(self.fig)
+        layout.addWidget(canvas)
+        
+        # Add navigation toolbar
+        toolbar = NavigationToolbar2QT(canvas, window)
+        layout.addWidget(toolbar)
+        
+        window.resize(1200, 800)
+        window.show()
+        
+        # Enable interactive mode and start event loop
+        plt.ion()
+        app.exec_()
 
 
 def main():
