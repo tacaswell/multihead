@@ -399,14 +399,14 @@ class ImageScrubber:
         roi_desc = f"roi_{current_roi.rslc.start}-{current_roi.rslc.stop}_{current_roi.cslc.start}-{current_roi.cslc.stop}"
 
         # Suggest filename
-        default_filename = f"detector_{self.current_detector}_{roi_desc}_frames_{self.frame_start}-{self.frame_end}.tsv"
+        default_filename = f"detector_{self.current_detector}_{roi_desc}_frames_{self.frame_start}-{self.frame_end}.xy"
 
         # Open file dialog using Qt
         filename, _ = QtWidgets.QFileDialog.getSaveFileName(
             None,
             "Save ROI Sum vs Angle Data",
             default_filename,
-            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;XY data files (*.xy);;All files (*.*)"
+            "XY data files (*.xy);;Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;All files (*.*)"
         )
 
         if filename:
