@@ -30,7 +30,7 @@ class ImageScrubber:
     - Next/Back buttons to move the frame selection
     """
 
-    def __init__(self, raw: HRDRawBase, detector_rois: DetectorROIs | None = None):
+    def __init__(self, raw: HRDRawBase, detector_rois: DetectorROIs | None = None, initial_detector: int | None = None):
         """
         Initialize the image scrubber.
 
@@ -40,12 +40,22 @@ class ImageScrubber:
             The raw data object containing detector images and metadata
         detector_rois : DetectorROIs, optional
             ROI definitions for each detector. If None, center 240x240 pixel ROIs are used.
+        initial_detector : int, optional
+            Initial detector to display. If None or invalid, uses the lowest numbered detector.
         """
         self.raw = raw
 
         # Get available detectors from the raw data mapping
         self.detector_numbers = sorted(self.raw._detector_map.keys())
-        self.current_detector = self.detector_numbers[0]
+        
+        # Set initial detector
+        if initial_detector is not None and initial_detector in self.detector_numbers:
+            self.current_detector = initial_detector
+        else:
+            self.current_detector = self.detector_numbers[0]
+            if initial_detector is not None:
+                print(f"Warning: Detector {initial_detector} not available. Using detector {self.current_detector} instead.")
+                print(f"Available detectors: {self.detector_numbers}")
 
         # Get arm tth data and frame information
         self.arm_tth = self.raw.get_arm_tth()
@@ -121,6 +131,10 @@ class ImageScrubber:
         detector_labels = [f"Det {n}" for n in self.detector_numbers]
         self.radio = RadioButtons(self.radio_ax, detector_labels)
         self.radio.on_clicked(self._on_detector_change)
+        
+        # Set the active radio button to match current detector
+        current_detector_index = self.detector_numbers.index(self.current_detector)
+        self.radio.set_active(current_detector_index)
 
         # Rectangle selector for dynamic ROI selection
         self.rect_selector = RectangleSelector(
@@ -546,6 +560,12 @@ def main():
         help="Data format version (default: 2)",
     )
     parser.add_argument("--roi-config", type=str, help="Path to ROI configuration file")
+    parser.add_argument(
+        "--detector",
+        type=int,
+        default=None,
+        help="Initial detector to display (1-12, default: lowest numbered detector)"
+    )
 
     args = parser.parse_args()
 
@@ -566,7 +586,7 @@ def main():
         print("No ROI configuration specified, using full detector area as ROI")
 
     # Create and show scrubber
-    scrubber = ImageScrubber(raw, detector_rois)
+    scrubber = ImageScrubber(raw, detector_rois, initial_detector=args.detector)
     scrubber.show()
 
 
