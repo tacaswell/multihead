@@ -1,0 +1,106 @@
+parameters:
+  frame_range: 2090-2911
+  rois_count: 12
+  source: interactive_selection
+  total_detectors: 12
+rois:
+- detector_number: 1
+  roi_bounds:
+    cslc:
+    - 0
+    - 212
+    rslc:
+    - 118
+    - 142
+- detector_number: 2
+  roi_bounds:
+    cslc:
+    - 24
+    - 242
+    rslc:
+    - 78
+    - 98
+- detector_number: 3
+  roi_bounds:
+    cslc:
+    - 0
+    - 224
+    rslc:
+    - 175
+    - 199
+- detector_number: 4
+  roi_bounds:
+    cslc:
+    - 21
+    - 239
+    rslc:
+    - 187
+    - 208
+- detector_number: 5
+  roi_bounds:
+    cslc:
+    - 9
+    - 225
+    rslc:
+    - 184
+    - 204
+- detector_number: 6
+  roi_bounds:
+    cslc:
+    - 27
+    - 241
+    rslc:
+    - 121
+    - 140
+- detector_number: 7
+  roi_bounds:
+    cslc:
+    - 11
+    - 226
+    rslc:
+    - 160
+    - 181
+- detector_number: 8
+  roi_bounds:
+    cslc:
+    - 26
+    - 243
+    rslc:
+    - 68
+    - 89
+- detector_number: 9
+  roi_bounds:
+    cslc:
+    - 5
+    - 221
+    rslc:
+    - 164
+    - 185
+- detector_number: 10
+  roi_bounds:
+    cslc:
+    - 30
+    - 242
+    rslc:
+    - 115
+    - 133
+- detector_number: 11
+  roi_bounds:
+    cslc:
+    - 0
+    - 212
+    rslc:
+    - 122
+    - 139
+- detector_number: 12
+  roi_bounds:
+    cslc:
+    - 27
+    - 244
+    rslc:
+    - 57
+    - 80
+software:
+  module: multihead.demos.scrubber
+  name: HRD Image Scrubber
+  version: '1.0'

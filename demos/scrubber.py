@@ -406,13 +406,13 @@ class ImageScrubber:
             None,
             "Save ROI Sum vs Angle Data",
             default_filename,
-            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;All files (*.*)"
+            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;XY data files (*.xy);;All files (*.*)"
         )
 
         if filename:
             try:
                 # Determine separator based on file extension
-                separator = "\t" if filename.endswith((".tsv", ".txt")) else ","
+                separator = "\t" if filename.endswith((".tsv", ".txt", ".xy")) else ","
 
                 # Create header with metadata
                 header_lines = [
