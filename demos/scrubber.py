@@ -428,30 +428,36 @@ class ImageScrubber:
                 # Determine separator based on file extension
                 separator = "\t" if filename.endswith((".tsv", ".txt", ".xy")) else ","
 
-                # Create header with metadata
-                header_lines = [
-                    f"# HRD Image Scrubber Export",
-                    f"# Detector: {self.current_detector}",
-                    f"# Frame range: {self.frame_start}-{self.frame_end}",
-                    f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
-                    f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
-                    f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
-                    f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
-                    ""  # Empty line before data
-                ]
-
                 # Write data
                 with open(filename, 'w') as f:
-                    # Write header
-                    for line in header_lines:
-                        f.write(line + "\n")
+                    if filename.endswith(".xy"):
+                        # For .xy files, write only data without headers or column names
+                        for angle, intensity in zip(self.arm_tth, roi_sums):
+                            f.write(f"{angle:.6f}{separator}{intensity}\n")
+                    else:
+                        # For other formats, include full header and column names
+                        # Create header with metadata
+                        header_lines = [
+                            f"# HRD Image Scrubber Export",
+                            f"# Detector: {self.current_detector}",
+                            f"# Frame range: {self.frame_start}-{self.frame_end}",
+                            f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
+                            f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
+                            f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
+                            f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
+                            ""  # Empty line before data
+                        ]
 
-                    # Write column headers
-                    f.write(f"Arm_2theta_degrees{separator}ROI_Sum\n")
+                        # Write header
+                        for line in header_lines:
+                            f.write(line + "\n")
 
-                    # Write data
-                    for angle, intensity in zip(self.arm_tth, roi_sums):
-                        f.write(f"{angle:.6f}{separator}{intensity}\n")
+                        # Write column headers
+                        f.write(f"Arm_2theta_degrees{separator}ROI_Sum\n")
+
+                        # Write data
+                        for angle, intensity in zip(self.arm_tth, roi_sums):
+                            f.write(f"{angle:.6f}{separator}{intensity}\n")
 
                 print(f"Data saved to: {filename}")
 
