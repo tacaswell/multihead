@@ -5,18 +5,17 @@ This module provides a matplotlib-based interactive interface for exploring
 raw detector data with frame selection capabilities.
 """
 
-import functools
-import matplotlib
-matplotlib.use('qtagg')
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 from matplotlib.backends.qt_compat import QtWidgets
+from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase
 from multihead.raw_proc import find_crystal_range
+
+plt.switch_backend("qtagg")
 
 
 class ImageScrubber:
@@ -68,6 +67,8 @@ class ImageScrubber:
         self._init_plot_objects()
         self._update_display()
 
+        self._detector_cache = {}
+
     def _initialize_detector_rois(self, detector_rois: DetectorROIs | None):
         """Initialize ROIs for all detectors, using provided config or defaults."""
         for detector_num in self.detector_numbers:
@@ -77,8 +78,7 @@ class ImageScrubber:
             else:
                 # Create default ROI: 6-250 in each direction for 256x256 detectors
                 self._detector_rois[detector_num] = CrystalROI(
-                    rslc=SimpleSliceTuple(6, 250),
-                    cslc=SimpleSliceTuple(6, 250)
+                    rslc=SimpleSliceTuple(6, 250), cslc=SimpleSliceTuple(6, 250)
                 )
 
     def _setup_figure(self):
@@ -130,7 +130,7 @@ class ImageScrubber:
             button=[1],  # Only left mouse button
             minspanx=5,
             minspany=5,
-            spancoords='pixels',
+            spancoords="pixels",
             interactive=True,
             props=dict(alpha=0.3, facecolor="None", edgecolor="blue", linewidth=2),
         )
@@ -208,7 +208,14 @@ class ImageScrubber:
 
         # Initialize dynamic ROI rectangle (blue, for RectangleSelector feedback)
         self.dynamic_roi_rect = Rectangle(
-            (0, 0), 1, 1, linewidth=2, edgecolor="blue", facecolor="none", alpha=0.7, visible=False
+            (0, 0),
+            1,
+            1,
+            linewidth=2,
+            edgecolor="blue",
+            facecolor="none",
+            alpha=0.7,
+            visible=False,
         )
         self.image_ax.add_patch(self.dynamic_roi_rect)
 
@@ -224,10 +231,17 @@ class ImageScrubber:
         # Setup secondary axis
         self.frame_ax.set_xlabel("Frame Number")
 
-    @functools.lru_cache(maxsize=3)
     def _get_detector_data(self, detector_num: int) -> npt.NDArray[np.uint16]:
-        """Get detector data with caching (max 3 detectors)."""
-        return self.raw.get_detector(detector_num)
+        if detector_num in self._detector_cache:
+            return self._detector_cache[detector_num]
+        self._detector_cache[detector_num] = new_data = self.raw.get_detector(
+            detector_num
+        )
+        # keep at most 3 detector sets
+        for k in list(self._detector_cache):
+            if abs(k - detector_num) > 1:
+                del self._detector_cache[k]
+        return new_data
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
         """Get ROI sum for a detector."""
@@ -338,8 +352,7 @@ class ImageScrubber:
 
         # Create new ROI and update the unified structure
         new_roi = CrystalROI(
-            rslc=SimpleSliceTuple(ymin, ymax),
-            cslc=SimpleSliceTuple(xmin, xmax)
+            rslc=SimpleSliceTuple(ymin, ymax), cslc=SimpleSliceTuple(xmin, xmax)
         )
 
         self._detector_rois[self.current_detector] = new_roi
@@ -406,7 +419,7 @@ class ImageScrubber:
             None,
             "Save ROI Sum vs Angle Data",
             default_filename,
-            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;All files (*.*)"
+            "Tab-separated values (*.tsv);;Comma-separated values (*.csv);;Text files (*.txt);;All files (*.*)",
         )
 
         if filename:
@@ -416,18 +429,18 @@ class ImageScrubber:
 
                 # Create header with metadata
                 header_lines = [
-                    f"# HRD Image Scrubber Export",
+                    "# HRD Image Scrubber Export",
                     f"# Detector: {self.current_detector}",
                     f"# Frame range: {self.frame_start}-{self.frame_end}",
                     f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
                     f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
                     f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
                     f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
-                    ""  # Empty line before data
+                    "",  # Empty line before data
                 ]
 
                 # Write data
-                with open(filename, 'w') as f:
+                with open(filename, "w") as f:
                     # Write header
                     for line in header_lines:
                         f.write(line + "\n")
@@ -436,7 +449,7 @@ class ImageScrubber:
                     f.write(f"Arm_2theta_degrees{separator}ROI_Sum\n")
 
                     # Write data
-                    for angle, intensity in zip(self.arm_tth, roi_sums):
+                    for angle, intensity in zip(self.arm_tth, roi_sums, strict=False):
                         f.write(f"{angle:.6f}{separator}{intensity}\n")
 
                 print(f"Data saved to: {filename}")
@@ -458,7 +471,7 @@ class ImageScrubber:
             None,
             "Save ROI Configuration",
             default_filename,
-            "YAML files (*.yaml *.yml);;All files (*.*)"
+            "YAML files (*.yaml *.yml);;All files (*.*)",
         )
 
         if filename:
@@ -469,14 +482,14 @@ class ImageScrubber:
                     software={
                         "name": "HRD Image Scrubber",
                         "version": "1.0",
-                        "module": "multihead.demos.scrubber"
+                        "module": "multihead.demos.scrubber",
                     },
                     parameters={
                         "total_detectors": len(self.detector_numbers),
                         "source": "interactive_selection",
                         "frame_range": f"{self.frame_start}-{self.frame_end}",
-                        "rois_count": len(self._detector_rois)
-                    }
+                        "rois_count": len(self._detector_rois),
+                    },
                 )
 
                 # Save to YAML
@@ -488,7 +501,7 @@ class ImageScrubber:
                 print(f"Error saving ROI file: {e}")
 
     # Rename the old _on_save method to maintain compatibility
-    def _on_save(self, event):  # noqa: ARG002
+    def _on_save(self, event):
         """Legacy save method - redirect to save data."""
         self._on_save_data(event)
 
@@ -516,9 +529,11 @@ class ImageScrubber:
             self._update_image()
             self.fig.canvas.draw_idle()
 
-            print(f"Auto-detected ROI for detector {self.current_detector}: "
-                  f"rows {detected_roi.rslc.start}-{detected_roi.rslc.stop}, "
-                  f"cols {detected_roi.cslc.start}-{detected_roi.cslc.stop}")
+            print(
+                f"Auto-detected ROI for detector {self.current_detector}: "
+                f"rows {detected_roi.rslc.start}-{detected_roi.rslc.stop}, "
+                f"cols {detected_roi.cslc.start}-{detected_roi.cslc.stop}"
+            )
 
         except Exception as e:
             print(f"Error in auto ROI detection: {e}")

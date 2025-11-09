@@ -16,16 +16,12 @@ def main():
     parser = argparse.ArgumentParser(
         description="Rechunk HDF5 files in place for better detector access patterns"
     )
-    parser.add_argument(
-        "files",
-        nargs="+",
-        help="HDF5 files to rechunk"
-    )
+    parser.add_argument("files", nargs="+", help="HDF5 files to rechunk")
     parser.add_argument(
         "--n-frames",
         type=int,
         default=1000,
-        help="Number of frames per chunk (default: 1000)"
+        help="Number of frames per chunk (default: 1000)",
     )
 
     args = parser.parse_args()
@@ -35,7 +31,7 @@ def main():
     missing_files = [f for f in file_paths if not f.exists()]
 
     if missing_files:
-        print(f"Error: The following files do not exist:")
+        print("Error: The following files do not exist:")
         for f in missing_files:
             print(f"  {f}")
         sys.exit(1)
@@ -65,7 +61,9 @@ def main():
         if current_file:
             print(f"\nProcessing interrupted while working on: {current_file}")
 
-        not_touched = [f for f in file_paths if f not in processed_files and f != current_file]
+        not_touched = [
+            f for f in file_paths if f not in processed_files and f != current_file
+        ]
         if not_touched:
             print(f"\nFiles not processed ({len(not_touched)}):")
             for f in not_touched:
@@ -74,7 +72,7 @@ def main():
         sys.exit(130)  # Standard exit code for SIGINT
 
     # Report results
-    print(f"\nProcessing complete!")
+    print("\nProcessing complete!")
     print(f"Successfully processed: {len(processed_files)} files")
 
     if failed_files:

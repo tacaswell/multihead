@@ -270,7 +270,9 @@ def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
                 dtype=read_ds.dtype,
             )
 
-            for j in tqdm.tqdm(range(len(read_ds) // actual_chunk_size + 1), desc="re-chunking"):
+            for j in tqdm.tqdm(
+                range(len(read_ds) // actual_chunk_size + 1), desc="re-chunking"
+            ):
                 slc = slice(j * actual_chunk_size, (j + 1) * actual_chunk_size)
                 dataset[slc] = read_ds[slc]
             del read_ds
