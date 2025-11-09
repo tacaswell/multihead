@@ -7,6 +7,9 @@ version = "0.1.0"
 
 [tasks]
 
+[environments]
+pre-commit = { features = ["pre-commit"], solve-group = "pre-commit", no-default-feature = true }
+
 [dependencies]
 matplotlib = ">=3.10.1,<4"
 ipython = ">=9.2.0,<10"
@@ -21,6 +24,12 @@ python = ">=3.13"
 pyyaml = ">=6.0.2,<7"
 pytest = ">=8.3.5,<9"
 hdf5plugin = ">=6.0.0,<7"
+
+[feature.pre-commit.dependencies]
+pre-commit = ">=4.0.0,<5"
+
+[feature.pre-commit.tasks]
+pre-commit = "pre-commit run --all-files"
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }
