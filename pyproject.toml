@@ -140,13 +140,12 @@ extend-select = [
   "SIM",      # flake8-simplify
   "T20",      # flake8-print
   "UP",       # pyupgrade
-  "YTT",      # flake8-2020
+  "YTT"      # flake8-2020
 ]
-extend-ignore = [
+ignore = [
   "PLR",    # Design related pylint codes
   "E501",   # Line too long, trust the formatter to get it right
   "ISC001", # implicit concat, can be handy
-
   # QA for wrong opinions
   "E741",   # allow l as variable name
   "ICN001", # allow verbose numpy
@@ -162,19 +161,18 @@ extend-ignore = [
   "EM102",  # use an fstring in an exception if you want
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
-  "UP015",  # "redundent" read mode is OK
+  "UP015",  # "redundant" read mode is OK
   "UP031",  # % formats are fine
   "UP038",  # Union syntax is not clearer
-  "PLC0105", # reject rules about naming generic types
   "PLC2401", # allow greek to make equations clearer
   "PTH113",
+  "SIM102",
   "SIM114",
-  "SIM115",
-  "SIM102"
+  "SIM115"
 ]
 unfixable = [
   "T20",  # Removes print statements
-  "F841", # Removes unused variables
+  "F841" # Removes unused variables
 ]
 
 
@@ -191,3 +189,6 @@ ignored-modules = ['h5py']
 
 [tool.pylint."messages control"]
 disable = ["fixme"]
+
+[tool.codespell]
+ignore-words-list = "tha"
