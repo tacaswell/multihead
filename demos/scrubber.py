@@ -99,6 +99,11 @@ class ImageScrubber:
 
         # Initialize matplotlib objects that will be updated
         self._init_plot_objects()
+        
+        # Set the active radio button to match current detector (after plot objects exist)
+        current_detector_index = self.detector_numbers.index(self.current_detector)
+        self.radio.set_active(current_detector_index)
+        
         self._update_display()
 
     def _initialize_detector_rois(self, detector_rois: DetectorROIs | None):
@@ -154,10 +159,6 @@ class ImageScrubber:
         detector_labels = [f"Det {n}" for n in self.detector_numbers]
         self.radio = RadioButtons(self.radio_ax, detector_labels)
         self.radio.on_clicked(self._on_detector_change)
-        
-        # Set the active radio button to match current detector
-        current_detector_index = self.detector_numbers.index(self.current_detector)
-        self.radio.set_active(current_detector_index)
 
         # Rectangle selector for dynamic ROI selection
         self.rect_selector = RectangleSelector(
@@ -768,7 +769,7 @@ class ImageScrubber:
         
         # Enable interactive mode and start event loop
         plt.ion()
-        app.exec_()
+        app.exec()
 
 
 def main():
