@@ -122,7 +122,8 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
         # step 1
         phi = TrigAngle.from_rad(np.arctan(zd / ((config.R + config.Rd) * tth.sin)))
 
-        for _ in range(5):
+        # TODO make this conditional on convergence not fixed iteration count?
+        for _ in range(9):
             # step 2
             arm_tth_i = _arm_from_phi_tth(crystal_roll, crystal_yaw, tth, phi, theta_i)
             arm_tth_d = TrigAngle.from_rad(
