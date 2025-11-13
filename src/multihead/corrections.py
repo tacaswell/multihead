@@ -20,7 +20,7 @@ class TrigAngle(NamedTuple):
         return cls(angle, np.sin(angle), np.cos(angle))
 
 
-def _arm_from_phi_tth(
+def _arm_from_phi_tth_eq20(
     crystal_roll: TrigAngle,
     crystal_yaw: TrigAngle,
     tth: TrigAngle,
@@ -70,6 +70,131 @@ def _arm_from_phi_tth(
     return TrigAngle.from_rad(sign * f0)
 
 
+def _compute_new_phi_eq15(
+    zd: float,
+    L3: float,
+    theta_i: TrigAngle,
+    crystal_roll: TrigAngle,
+    crystal_yaw: TrigAngle,
+    Rp: float,
+    tth: TrigAngle,
+) -> TrigAngle:
+    """
+    Implementation of Equation 15 to compute the updated phi angle.
+
+    Parameters
+    ----------
+    zd : float
+        The z position on the detector
+    L3 : float
+        The L3 value from Equation 13
+    theta_i : TrigAngle
+        Theta i angle
+    crystal_roll : TrigAngle
+        Crystal roll angle
+    crystal_yaw : TrigAngle
+        Crystal yaw angle
+    Rp : float
+        Corrected length (L' in the paper)
+    tth : TrigAngle
+        Scattering 2theta angle
+
+    Returns
+    -------
+    TrigAngle
+        The updated phi angle
+    """
+    return TrigAngle.from_rad(
+        np.arcsin(
+            (zd + 2 * L3 * theta_i.sin * crystal_roll.sin * crystal_yaw.cos)
+            / ((Rp + L3) * tth.sin)
+        )
+    )
+
+
+def _compute_L3_eq13(
+    config: AnalyzerConfig,
+    theta_d: TrigAngle,
+    theta_i: TrigAngle,
+    arm_tth_i: TrigAngle,
+    arm_tth_d: TrigAngle,
+    tth: TrigAngle,
+    phi: TrigAngle,
+    det_yaw: TrigAngle,
+    crystal_roll: TrigAngle,
+    crystal_yaw: TrigAngle,
+    Rp: float,
+) -> float:
+    """
+    Implementation of Equation 13 to compute L3.
+
+    Parameters
+    ----------
+    config : AnalyzerConfig
+        Configuration containing R and Rd values
+    theta_d : TrigAngle
+        Theta d angle
+    theta_i : TrigAngle
+        Theta i angle
+    arm_tth_i : TrigAngle
+        Arm 2theta i angle
+    arm_tth_d : TrigAngle
+        Arm 2theta d angle
+    tth : TrigAngle
+        Scattering 2theta angle
+    phi : TrigAngle
+        Phi angle
+    det_yaw : TrigAngle
+        Detector yaw angle
+    crystal_roll : TrigAngle
+        Crystal roll angle
+    crystal_yaw : TrigAngle
+        Crystal yaw angle
+    Rp : float
+        Corrected length (L' in the paper)
+
+    Returns
+    -------
+    float
+        The computed L3 value
+    """
+    numerator = (
+        -config.R * theta_d.cos
+        - config.Rd
+        + Rp
+        * (
+            arm_tth_d.cos * tth.cos
+            + arm_tth_d.sin * tth.sin * phi.cos
+            + np.tan(det_yaw.angle) * tth.sin * phi.sin
+        )
+    )
+    denominator = (
+        -arm_tth_d.cos
+        * (
+            tth.cos
+            + 2
+            * theta_i.sin
+            * (
+                arm_tth_i.sin * crystal_roll.cos
+                + arm_tth_i.cos * crystal_roll.sin * crystal_yaw.sin
+            )
+        )
+        - arm_tth_d.sin
+        * (
+            tth.sin * phi.cos
+            + 2
+            * theta_i.sin
+            * (
+                arm_tth_i.sin * crystal_roll.sin * crystal_yaw.sin
+                - arm_tth_i.cos * crystal_roll.cos
+            )
+        )
+        - np.tan(det_yaw.angle)
+        * (tth.sin * phi.sin - 2 * theta_i.sin * crystal_roll.sin * crystal_yaw.sin)
+    )
+    return numerator / denominator
+
+
 def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
     """
     Given a range of z and a scattering angle, compute the arm 2ϴ where scatter
@@ -113,8 +238,8 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
     # step 2: plug into eq 20 to get arm_th - theta_i
     # step 3: plug in to modified eq 13 to get L3
     # step 4: plug into eq 15 to get updated phi
-    # step 6: repeat from 2
-    # step 7: when stable put arm tth from 2 in output
+    # step 5: repeat from 2
+    # step 6: when stable put arm tth from 2 in output
 
     arm_tth_out = np.zeros_like(z).astype(float)
 
@@ -125,57 +250,36 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
         # TODO make this conditional on convergence not fixed iteration count?
         for _ in range(9):
             # step 2
-            arm_tth_i = _arm_from_phi_tth(crystal_roll, crystal_yaw, tth, phi, theta_i)
+            arm_tth_i = _arm_from_phi_tth_eq20(
+                crystal_roll, crystal_yaw, tth, phi, theta_i
+            )
             arm_tth_d = TrigAngle.from_rad(
                 arm_tth_i.angle - theta_d.angle + theta_i.angle
             )
             # step 3
-            numerator = (
-                -config.R * theta_d.cos
-                - config.Rd
-                + Rp
-                * (
-                    arm_tth_d.cos * tth.cos
-                    + arm_tth_d.sin * tth.sin * phi.cos
-                    + np.tan(det_yaw.angle) * tth.sin * phi.sin
-                )
-            )
-            denominator = (
-                -arm_tth_d.cos
-                * (
-                    tth.cos
-                    + 2
-                    * theta_i.sin
-                    * (
-                        arm_tth_i.sin * crystal_roll.cos
-                        + arm_tth_i.cos * crystal_roll.sin * crystal_yaw.sin
-                    )
-                )
-                - arm_tth_d.sin
-                * (
-                    tth.sin * phi.cos
-                    + 2
-                    * theta_i.sin
-                    * (
-                        arm_tth_i.sin * crystal_roll.sin * crystal_yaw.sin
-                        - arm_tth_i.cos * crystal_roll.cos
-                    )
-                )
-                - np.tan(det_yaw.angle)
-                * (
-                    tth.sin * phi.sin
-                    - 2 * theta_i.sin * crystal_roll.sin * crystal_yaw.sin
-                )
-            )
-            L3 = (numerator) / denominator
-
-            new_phi = TrigAngle.from_rad(
-                np.arcsin(
-                    (zd + 2 * L3 * theta_i.sin * crystal_roll.sin * crystal_yaw.cos)
-                    / ((Rp + L3) * tth.sin)
-                )
+            L3 = _compute_L3_eq13(
+                config,
+                theta_d,
+                theta_i,
+                arm_tth_i,
+                arm_tth_d,
+                tth,
+                phi,
+                det_yaw,
+                crystal_roll,
+                crystal_yaw,
+                Rp,
             )
 
+            # step 4
+            new_phi = _compute_new_phi_eq15(
+                zd, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+            )
+
+            # TODO step 5 (break on threshold)
             phi = new_phi
-        arm_tth_out[i] = arm_tth_d.angle + theta_d.angle
+
+        # step 6
+        arm_tth_i = _arm_from_phi_tth_eq20(crystal_roll, crystal_yaw, tth, phi, theta_i)
+        arm_tth_out[i] = arm_tth_i.angle + theta_i.angle
     return np.rad2deg(arm_tth_out)
