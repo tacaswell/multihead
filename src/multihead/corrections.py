@@ -33,27 +33,41 @@ def _arm_from_phi_tth(
     Returns 2ϴ - θi
     """
 
-    X = (
-        crystal_yaw.sin * crystal_roll.sin * tth.cos
-        - crystal_yaw.cos * tth.sin * phi.cos
-    )
-    Y = (
-        crystal_roll.cos * tth.cos
-        + crystal_roll.sin * crystal_yaw.sin * tth.sin * phi.cos
-    )
-    Z = crystal_roll.sin * crystal_yaw.cos * tth.sin * phi.sin - theta_i.sin
+    def inner(
+        crystal_roll: TrigAngle,
+        crystal_yaw: TrigAngle,
+        tth: TrigAngle,
+        phi: TrigAngle,
+        theta_i: TrigAngle,
+        delta: float,
+    ) -> float:
+        phi_d = phi.angle + delta
+        X = (
+            crystal_yaw.sin * crystal_roll.sin * tth.cos
+            - crystal_yaw.cos * tth.sin * np.cos(phi_d)
+        )
+        Y = (
+            crystal_roll.cos * tth.cos
+            + crystal_roll.sin * crystal_yaw.sin * tth.sin * np.cos(phi_d)
+        )
+        Z = crystal_roll.sin * crystal_yaw.cos * tth.sin * np.sin(phi_d) - theta_i.sin
+        return np.arccos(
+            (2 * X * Z + np.sqrt(4 * Z**2 * X**2 - 4 * (X**2 + Y**2) * (Z**2 - Y**2)))
+            / (2 * (X**2 + Y**2))
+        )
 
-    # TODO handle corrections at low angles, see SI to paper
     # when 2ϴ - θi goes negative, we need to take the negative of the arccos
     # as cos(x) == cos(-x) but arccos always returns a positive number
     # Per the SI, the solution is to take the numerical second derivative and
     # ensure it is negative
-    return TrigAngle.from_rad(
-        np.arccos(
-            (2 * X * Z + np.sqrt(4 * Z**2 * X**2 - 4 * (X**2 + Y**2) * (Z**2 - Y**2)))
-            / (2 * (X**2 + Y**2))
-        )
-    )
+
+    # paper says 10**-10, but that gives numerical instabilities
+    delta = 5e-7
+    fm = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, -delta)
+    f0 = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, 0)
+    fp = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, delta)
+    sign = -np.sign((fp - 2 * f0 + fm) / (delta**2))
+    return TrigAngle.from_rad(sign * f0)
 
 
 def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
