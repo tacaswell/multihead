@@ -210,6 +210,10 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
 
     config : AnalyzerConfig
         All of the calibration / alignment values
+
+    Returns
+    -------
+    arm_tth, phi
     """
 
     if config.detector_roll != 0:
@@ -242,6 +246,7 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
     # step 6: when stable put arm tth from 2 in output
 
     arm_tth_out = np.zeros_like(z).astype(float)
+    phi_out = np.zeros_like(z).astype(float)
 
     for i, zd in enumerate(z):
         # step 1
@@ -282,4 +287,5 @@ def arm_from_z(z: NDArray[float], scatter_tth: float, config: AnalyzerConfig):
         # step 6
         arm_tth_i = _arm_from_phi_tth_eq20(crystal_roll, crystal_yaw, tth, phi, theta_i)
         arm_tth_out[i] = arm_tth_i.angle + theta_i.angle
-    return np.rad2deg(arm_tth_out)
+        phi_out[i] = phi.angle
+    return np.rad2deg(arm_tth_out), np.rad2deg(phi_out)

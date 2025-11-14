@@ -21,11 +21,13 @@ cmap = mpl.colormaps["viridis"]
 
 
 for tth, color in zip(thetas[::-1], cmap(np.linspace(0, 1, len(thetas))), strict=True):
+    arm_tth, _ = arm_from_z(z, tth, cfg)
     ax.plot(
-        z, arm_from_z(z, tth, cfg) - tth, label=rf"$2\theta = {tth:g}°$", color=color
+        z, arm_tth - tth, label=rf"$2\theta = {tth:g}°$", color=color
     )
+
 ax.legend()
 ax.set_ylabel(r"$2\Theta - 2\theta$ (deg)")
-ax.set_xlabel(r"axial offset (mm)")
+ax.set_xlabel(r"axial offset from center of detector (mm)")
 
 plt.show()
