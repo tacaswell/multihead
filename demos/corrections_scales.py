@@ -16,15 +16,15 @@ cfg = AnalyzerConfig(
 z = np.array(np.linspace(-10, 10, 128))
 
 fig, ax = plt.subplots(layout="constrained")
-thetas = np.arange(5, 50, 5)
+thetas = np.arange(5, 50, 5)[::-1]
 cmap = mpl.colormaps["viridis"]
 
+arm_tths, _ = arm_from_z(z.reshape(1, -1), thetas.reshape(-1, 1), cfg)
 
-for tth, color in zip(thetas[::-1], cmap(np.linspace(0, 1, len(thetas))), strict=True):
-    arm_tth, _ = arm_from_z(z, tth, cfg)
-    ax.plot(
-        z, arm_tth - tth, label=rf"$2\theta = {tth:g}°$", color=color
-    )
+for arm_tth, tth, color in zip(
+    arm_tths, thetas, cmap(np.linspace(0, 1, len(thetas))), strict=True
+):
+    ax.plot(z, arm_tth - tth, label=rf"$2\theta = {tth:g}°$", color=color)
 
 ax.legend()
 ax.set_ylabel(r"$2\Theta - 2\theta$ (deg)")
