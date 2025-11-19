@@ -34,6 +34,9 @@ def _arm_from_phi_tth_eq20(
     Returns 2ϴ - θi
     """
 
+    if np.any(tth.angle > np.pi / 2):
+        raise ValueError("There is as sign error above 90deg")
+
     def inner(
         crystal_roll: TrigAngle,
         crystal_yaw: TrigAngle,
