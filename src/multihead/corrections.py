@@ -12,11 +12,11 @@ class TrigAngle(NamedTuple):
     cos: NDArray[np.float64]
 
     @classmethod
-    def from_deg(cls, angle: ArrayLike[np.float64]) -> Self:
+    def from_deg(cls, angle: ArrayLike) -> Self:
         return cls.from_rad(np.deg2rad(angle))
 
     @classmethod
-    def from_rad(cls, angle: ArrayLike[np.float64]) -> Self:
+    def from_rad(cls, angle: ArrayLike) -> Self:
         np_angle = np.asarray(angle)
         return cls(np_angle, np.sin(np_angle), np.cos(np_angle))
 
@@ -200,7 +200,7 @@ def _compute_L3_eq13(
 
 
 def arm_from_z(
-    z: ArrayLike[np.float64], scatter_tth: ArrayLike[np.float64], config: AnalyzerConfig
+    z: ArrayLike, scatter_tth: ArrayLike, config: AnalyzerConfig
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and a scattering angle, compute the arm 2ϴ where scatter
