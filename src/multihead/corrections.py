@@ -17,8 +17,8 @@ class TrigAngle(NamedTuple):
 
     @classmethod
     def from_rad(cls, angle: ArrayLike) -> Self:
-        np_angle = np.asarray(angle)
-        return cls(np_angle, np.sin(np_angle), np.cos(np_angle))
+        angle = np.asarray(angle, dtype=np.float64)
+        return cls(angle, np.sin(angle), np.cos(angle))
 
 
 def _arm_from_phi_tth_eq20(
@@ -55,9 +55,12 @@ def _arm_from_phi_tth_eq20(
             + crystal_roll.sin * crystal_yaw.sin * tth.sin * np.cos(phi_d)
         )
         Z = crystal_roll.sin * crystal_yaw.cos * tth.sin * np.sin(phi_d) - theta_i.sin
+        X_squared = X**2
+        Y_squared = Y**2
+        Z_squared = Z**2
+        discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (Z_squared - Y_squared)
         return np.arccos(
-            (2 * X * Z + np.sqrt(4 * Z**2 * X**2 - 4 * (X**2 + Y**2) * (Z**2 - Y**2)))
-            / (2 * (X**2 + Y**2))
+            (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
         )
 
     # when 2ϴ - θi goes negative, we need to take the negative of the arccos
@@ -96,9 +99,12 @@ def _tth_from_phi_arm_eq23(
         - arm_tth_i.cos * crystal_roll.cos
     ) * phi.cos - crystal_roll.sin * crystal_yaw.cos * phi.sin
     Z = -theta_i.sin
+    X_squared = X**2
+    Y_squared = Y**2
+    Z_squared = Z**2
+    discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (Z_squared - Y_squared)
     tth_rad = np.arccos(
-        (2 * X * Z + np.sqrt(4 * Z**2 * X**2 - 4 * (X**2 + Y**2) * (Z**2 - Y**2)))
-        / (2 * (X**2 + Y**2))
+        (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
     )
 
     return TrigAngle.from_rad(tth_rad)
@@ -251,7 +257,7 @@ def arm_from_z(
     -------
     arm_tth, phi
     """
-    z: NDArray[np.float64] = np.asarray(z).astype(np.float64)
+    z: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
     if config.detector_roll != 0:
         z *= np.cos(np.deg2rad(config.detector_roll))
 
@@ -284,7 +290,7 @@ def arm_from_z(
 
     # step 1
     phi = TrigAngle.from_rad(
-        np.arctan(z / (np.asarray(config.R + config.Rd) * tth.sin))
+        np.arctan(z / ((config.R + config.Rd) * tth.sin))
     )
 
     for _ in range(9):
@@ -342,7 +348,7 @@ def tth_from_z(
     -------
     tth, phi
     """
-    z: NDArray[np.float64] = np.asarray(z).astype(np.float64)
+    z: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
     if config.detector_roll != 0:
         z *= np.cos(np.deg2rad(config.detector_roll))
 
