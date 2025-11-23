@@ -1,7 +1,7 @@
 from typing import NamedTuple, Self
 
 import numpy as np
-from numpy.typing import NDArray, ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from multihead.config import AnalyzerConfig
 
@@ -72,6 +72,36 @@ def _arm_from_phi_tth_eq20(
     fp = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, delta)
     sign = -np.sign((fp - 2 * f0 + fm) / (delta**2))
     return TrigAngle.from_rad(sign * f0)
+
+
+def _tth_from_phi_arm_eq23(
+    crystal_roll: TrigAngle,
+    crystal_yaw: TrigAngle,
+    arm_tth_i: TrigAngle,
+    theta_i: TrigAngle,
+    phi: TrigAngle,
+) -> TrigAngle:
+    """
+    Helper for equation 23.  All angles are in rads
+
+    Returns 2θ
+    """
+
+    X = (
+        arm_tth_i.sin * crystal_roll.cos
+        + arm_tth_i.cos * crystal_roll.sin * crystal_yaw.sin
+    )
+    Y = (
+        arm_tth_i.sin * crystal_roll.sin * crystal_yaw.sin
+        - arm_tth_i.cos * crystal_roll.cos
+    ) * phi.cos - crystal_roll.sin * crystal_yaw.cos * phi.sin
+    Z = -theta_i.sin
+    tth_rad = np.arccos(
+        (2 * X * Z + np.sqrt(4 * Z**2 * X**2 - 4 * (X**2 + Y**2) * (Z**2 - Y**2)))
+        / (2 * (X**2 + Y**2))
+    )
+
+    return TrigAngle.from_rad(tth_rad)
 
 
 def _compute_new_phi_eq15(
@@ -221,7 +251,7 @@ def arm_from_z(
     -------
     arm_tth, phi
     """
-    z = np.asarray(z)
+    z: NDArray[np.float64] = np.asarray(z).astype(np.float64)
     if config.detector_roll != 0:
         z *= np.cos(np.deg2rad(config.detector_roll))
 
@@ -253,7 +283,9 @@ def arm_from_z(
     # step 6: when stable put arm tth from 2 in output
 
     # step 1
-    phi = TrigAngle.from_rad(np.arctan(z / ((config.R + config.Rd) * tth.sin)))
+    phi = TrigAngle.from_rad(
+        np.arctan(z / (np.asarray(config.R + config.Rd) * tth.sin))
+    )
 
     for _ in range(9):
         # step 2
@@ -287,3 +319,95 @@ def arm_from_z(
     return np.rad2deg(np.array(arm_tth_i.angle + theta_i.angle)), np.rad2deg(
         np.array(phi.angle)
     )
+
+
+def tth_from_z(
+    z: ArrayLike, arm_tth: ArrayLike, config: AnalyzerConfig
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """
+    Given a range of z and arm 2ϴ, compute the true scatter 2θ
+
+    Parameters
+    ----------
+    z : ArrayLike[np.float]
+        The position along the detector face in mm
+
+    arm_tth : float
+        The angle of the scatter of interest In deg.
+
+    config : AnalyzerConfig
+        All of the calibration / alignment values
+
+    Returns
+    -------
+    tth, phi
+    """
+    z: NDArray[np.float64] = np.asarray(z).astype(np.float64)
+    if config.detector_roll != 0:
+        z *= np.cos(np.deg2rad(config.detector_roll))
+
+    # pull out and convert all angles to radians
+    det_yaw = TrigAngle.from_deg(config.detector_yaw)
+    crystal_yaw = TrigAngle.from_deg(config.crystal_yaw)
+    crystal_roll = TrigAngle.from_deg(config.crystal_roll)
+
+    theta_i = TrigAngle.from_deg(config.theta_i)
+    theta_d = TrigAngle.from_deg(config.theta_d)
+
+    arm_tth = TrigAngle.from_deg(arm_tth)
+
+    # corrected sample to crystal distance, L' in paper
+    Rp = (
+        config.R
+        * (
+            theta_i.cos * crystal_roll.sin * crystal_yaw.sin
+            - theta_i.sin * crystal_roll.cos
+        )
+        / (-theta_i.sin)
+    )
+
+    # step 1: estimate phi
+    #    step 2: plug into eq 23 to get 2theta
+    #    step 3: plug in to modified eq 13 to get L3
+    #    step 4: plug into eq 15 to get updated phi
+    #    step 5: repeat from 2 N times
+    # step 6: when stable put tth from 2 in output
+
+    # step 1 - estimate phi using arm_tth instead of scatter_tth
+    arm_tth_i = TrigAngle.from_rad(arm_tth.angle - theta_i.angle)
+    arm_tth_d = TrigAngle.from_rad(arm_tth.angle - theta_d.angle)
+    phi = TrigAngle.from_rad(
+        np.arctan(z / ((Rp + config.Rd) * np.sin(arm_tth_i.angle)))
+    )
+
+    for _ in range(9):
+        # step 2 - use eq 23 to get 2theta from phi and arm angles
+        tth = _tth_from_phi_arm_eq23(crystal_roll, crystal_yaw, arm_tth_i, theta_i, phi)
+
+        # step 3 - use eq 13 to get L3
+
+        L3 = _compute_L3_eq13(
+            config,
+            theta_d,
+            theta_i,
+            arm_tth_i,
+            arm_tth_d,
+            tth,
+            phi,
+            det_yaw,
+            crystal_roll,
+            crystal_yaw,
+            Rp,
+        )
+
+        # step 4 - use eq 15 to get updated phi
+        new_phi = _compute_new_phi_eq15(
+            z, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+        )
+
+        # step 5
+        phi = new_phi
+
+    # step 6 - final computation of tth using converged phi
+    tth = _tth_from_phi_arm_eq23(crystal_roll, crystal_yaw, arm_tth_i, theta_i, phi)
+    return np.rad2deg(np.array(tth.angle)), np.rad2deg(np.array(phi.angle))
