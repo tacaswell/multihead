@@ -58,7 +58,9 @@ def _arm_from_phi_tth_eq20(
         X_squared = X**2
         Y_squared = Y**2
         Z_squared = Z**2
-        discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (Z_squared - Y_squared)
+        discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (
+            Z_squared - Y_squared
+        )
         return np.arccos(
             (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
         )
@@ -102,7 +104,9 @@ def _tth_from_phi_arm_eq23(
     X_squared = X**2
     Y_squared = Y**2
     Z_squared = Z**2
-    discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (Z_squared - Y_squared)
+    discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (
+        Z_squared - Y_squared
+    )
     tth_rad = np.arccos(
         (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
     )
@@ -236,7 +240,9 @@ def _compute_L3_eq13(
 
 
 def arm_from_z(
-    z: ArrayLike, scatter_tth: ArrayLike, config: AnalyzerConfig # pyright: ignore[reportRedeclaration]
+    z: ArrayLike,
+    scatter_tth: ArrayLike,
+    config: AnalyzerConfig,  # pyright: ignore[reportRedeclaration]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and a scattering angle, compute the arm 2ϴ where scatter
@@ -289,9 +295,7 @@ def arm_from_z(
     # step 6: when stable put arm tth from 2 in output
 
     # step 1
-    phi = TrigAngle.from_rad(
-        np.arctan(z / ((config.R + config.Rd) * tth.sin))
-    )
+    phi = TrigAngle.from_rad(np.arctan(z / ((config.R + config.Rd) * tth.sin)))
 
     for _ in range(9):
         # step 2
@@ -328,7 +332,9 @@ def arm_from_z(
 
 
 def tth_from_z(
-    z: ArrayLike, arm_tth: ArrayLike, config: AnalyzerConfig # pyright: ignore[reportRedeclaration]
+    z: ArrayLike,
+    arm_tth: ArrayLike,
+    config: AnalyzerConfig,  # pyright: ignore[reportRedeclaration]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and arm 2ϴ, compute the true scatter 2θ
