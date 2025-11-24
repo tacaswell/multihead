@@ -236,7 +236,7 @@ def _compute_L3_eq13(
 
 
 def arm_from_z(
-    z: ArrayLike, scatter_tth: ArrayLike, config: AnalyzerConfig
+    z: ArrayLike, scatter_tth: ArrayLike, config: AnalyzerConfig # pyright: ignore[reportRedeclaration]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and a scattering angle, compute the arm 2ϴ where scatter
@@ -328,7 +328,7 @@ def arm_from_z(
 
 
 def tth_from_z(
-    z: ArrayLike, arm_tth: ArrayLike, config: AnalyzerConfig
+    z: ArrayLike, arm_tth: ArrayLike, config: AnalyzerConfig # pyright: ignore[reportRedeclaration]
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and arm 2ϴ, compute the true scatter 2θ
