@@ -25,7 +25,7 @@ class SimpleSliceTuple(NamedTuple):
     stop: int
 
 
-@dataclass
+@dataclass(frozen=True)
 class CrystalROI:
     rslc: SimpleSliceTuple
     cslc: SimpleSliceTuple
@@ -34,7 +34,7 @@ class CrystalROI:
         return slice(*self.rslc), slice(*self.cslc)
 
 
-@dataclass
+@dataclass(frozen=True)
 class DetectorROIs:
     rois: dict[int, CrystalROI]
     software: dict[str, str]
@@ -102,7 +102,7 @@ class DetectorROIs:
             )
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnalyzerConfig:
     r"""
     Analyzer crystal configuration and geometry parameters.
@@ -167,7 +167,7 @@ class AnalyzerConfig:
     center: float = 0
 
 
-@dataclass
+@dataclass(frozen=True)
 class SpectraCalib:
     """
     Spectral calibration parameters for a single detector.
@@ -199,7 +199,7 @@ class SpectraCalib:
     analyzer: AnalyzerConfig
 
 
-@dataclass
+@dataclass(frozen=True)
 class BankCalibration:
     """
     Calibration data for a bank of detectors.
