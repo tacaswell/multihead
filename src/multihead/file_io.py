@@ -3,18 +3,21 @@ Functions to read in raw data and extract single detectors.
 """
 
 import ast
+import json
 import re
 import shutil
 import subprocess
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Self, cast
+from typing import Any, ClassVar, Protocol, Self, cast
 
 import h5py
 import hdf5plugin  # noqa: F401
 import numpy as np
 import numpy.typing as npt
+import pyarrow.parquet as pq
+import sparse
 import tqdm
 
 from multihead import mda
@@ -41,6 +44,73 @@ class MDA:
     scan: mda.scanDim = field(repr=False)
 
 
+class HRDRawProtocol(Protocol):
+    """
+    Protocol defining the interface for raw detector data readers.
+
+    All reader implementations should provide these methods.
+    """
+
+    def get_detector(self, n: int) -> sparse.COO:
+        """
+        Get sparse detector data for a single detector.
+
+        Parameters
+        ----------
+        n : int
+            Detector number (1-12)
+
+        Returns
+        -------
+        sparse.COO
+            Sparse array with shape (n_frames, 256, 256)
+        """
+        ...
+
+    def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
+        """
+        Get sum of all frames for each detector.
+
+        Returns
+        -------
+        dict[int, NDArray]
+            Dictionary mapping detector number to 2D sum array
+        """
+        ...
+
+    def get_arm_tth(self) -> npt.NDArray[np.float64]:
+        """
+        Get the 2-theta positions for each frame.
+
+        Returns
+        -------
+        NDArray
+            Array of 2-theta values
+        """
+        ...
+
+    def get_monitor(self) -> npt.NDArray[np.float64]:
+        """
+        Get the monitor counts for each frame.
+
+        Returns
+        -------
+        NDArray
+            Array of monitor values
+        """
+        ...
+
+    def get_nominal_bin(self) -> float:
+        """
+        Get the nominal bin size.
+
+        Returns
+        -------
+        float
+            Nominal bin size in degrees
+        """
+
+
 class HRDRawBase:
     _detector_map: dict[int, tuple[int, int]]
     _data_path: ClassVar[str] = "/entry/data/data"
@@ -59,9 +129,9 @@ class HRDRawBase:
                 self._detector_map[det_number] = (k, j)
         super().__init__()
 
-    def get_detector(self, n: int) -> npt.NDArray[np.uint16]:
+    def get_detector(self, n: int) -> sparse.COO:
         ds = cast(h5py.Dataset, self._h5_file[self._data_path])
-        return load_det(ds, *self._detector_map[n])
+        return sparse.COO(load_det(ds, *self._detector_map[n]))
 
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         sums: dict[int, npt.NDArray[np.uint64]] = {
@@ -204,6 +274,162 @@ class HRDRawV2(HRDRawBase):
         return self._md["Nominal 2theta step"].value
 
 
+class HRDRawV3:
+    """
+    Reader for parquet-based sparse data format.
+
+    This class reads pre-converted parquet files containing sparse detector data
+    and metadata (tth, monitor) and provides the same API as V1 and V2 readers.
+
+    Parameters
+    ----------
+    data_dir : Path
+        Directory containing images.parquet and scalars.parquet files
+    """
+    _sparse_data: sparse.COO
+    _tth: npt.NDArray[np.float64]
+    _monitor: npt.NDArray[np.float64]
+    _nominal_bin: float
+    _detector_map: dict[int, tuple[int, int]]
+
+    def __init__(
+        self,
+        data_dir: Path,
+        detector_map: Sequence[Sequence[int]] = (
+            (10, 9, 6, 5, 2, 1),
+            (12, 11, 8, 7, 4, 3),
+        ),
+    ):
+        """
+        Initialize from a directory containing images.parquet and scalars.parquet.
+
+        Parameters
+        ----------
+        data_dir : Path
+            Directory containing images.parquet and scalars.parquet files
+        detector_map : Sequence[Sequence[int]]
+            Detector numbering map (same as HRDRawBase)
+
+        Raises
+        ------
+        FileNotFoundError
+            If images.parquet or scalars.parquet are missing
+        ValueError
+            If data_dir is not a directory
+        """
+        data_dir = Path(data_dir)
+
+        if not data_dir.is_dir():
+            raise ValueError(f"Expected a directory, got: {data_dir}")
+
+        images_path = data_dir / "images.parquet"
+        scalars_path = data_dir / "scalars.parquet"
+
+        if not images_path.exists():
+            raise FileNotFoundError(f"Missing required file: {images_path}")
+
+        if not scalars_path.exists():
+            raise FileNotFoundError(f"Missing required file: {scalars_path}")
+
+        # Set up detector map
+        self._detector_map = {}
+        for k, row in enumerate(detector_map):
+            for j, det_number in enumerate(row):
+                self._detector_map[det_number] = (k, j)
+
+        # Read the sparse detector images
+        images_table = pq.read_table(images_path)
+        self._sparse_data = sparse.COO(
+            [images_table[k] for k in ["detector", "frame", "row", "col"]],
+            data=images_table["data"],
+            shape=json.loads(images_table.schema.metadata[b"shape"]),
+        )
+
+        # Read scalars
+        scalars_table = pq.read_table(scalars_path)
+        self._tth = scalars_table["tth"].to_numpy()
+        self._monitor = scalars_table["monitor"].to_numpy()
+
+        # Extract nominal_bin from scalars metadata
+        if b"nominal_bin" in scalars_table.schema.metadata:
+            self._nominal_bin = float(
+                scalars_table.schema.metadata[b"nominal_bin"]
+            )
+        else:
+            raise ValueError(
+                f"Missing required metadata 'nominal_bin' in {scalars_path}"
+            )
+
+    @classmethod
+    def from_data_path(cls, data_path: Path, **kwargs) -> Self:
+        """
+        Create instance from just the data parquet path.
+
+        This will automatically use the parent directory.
+
+        Parameters
+        ----------
+        data_path : Path
+            Path to the images.parquet file
+        **kwargs
+            Additional keyword arguments passed to __init__
+
+        Returns
+        -------
+        HRDRawV3 instance
+        """
+        return cls(data_path.parent, **kwargs)
+
+    def get_detector(self, n: int) -> sparse.COO:
+        """
+        Extract a single detector from the sparse data.
+
+        Parameters
+        ----------
+        n : int
+            Detector number (1-12)
+
+        Returns
+        -------
+        detector_data : sparse.COO
+            Sparse COO array with shape (n_frames, 256, 256)
+        """
+        # Convert to 0-indexed
+        detector_idx = n - 1
+
+        # Extract the detector from the sparse array
+        return self._sparse_data[detector_idx]
+
+    def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
+        """
+        Get sum of all frames for each detector.
+
+        Returns
+        -------
+        sums : dict
+            Dictionary mapping detector number to 2D sum array
+        """
+        sums: dict[int, npt.NDArray[np.uint64]] = {}
+
+        for detector_num in range(1, 13):
+            detector_data = self.get_detector(detector_num)
+            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64)
+
+        return sums
+
+    def get_arm_tth(self) -> npt.NDArray[np.float64]:
+        """Get the 2-theta positions."""
+        return self._tth
+
+    def get_monitor(self) -> npt.NDArray[np.float64]:
+        """Get the monitor counts."""
+        return self._monitor
+
+    def get_nominal_bin(self) -> float:
+        """Get the nominal bin size."""
+        return self._nominal_bin
+
+
 def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) -> None:
     """
     Re-chunk the main detector array
@@ -339,12 +565,42 @@ def load_det(
     return cast(npt.NDArray[np.uint16], dset[:, *det_slice(n, m)])
 
 
-def open_data(fname: str | Path, version: int) -> HRDRawBase:
-    t: HRDRawBase
+def open_data(fname: str | Path, version: int) -> HRDRawProtocol:
+    """
+    Open raw data file and return appropriate reader.
+
+    Parameters
+    ----------
+    fname : str or Path
+        Path to the data file. For version 1 and 2, this is the HDF5 file path.
+        For version 3, this should be a directory containing images.parquet
+        and scalars.parquet files.
+    version : int
+        Format version: 1, 2, or 3
+
+    Returns
+    -------
+    reader : HRDRawProtocol
+        Appropriate reader instance for the file version
+    """
+    t: HRDRawProtocol
     if version == 1:
         t = HRDRawV1.from_root(fname)
     elif version == 2:
         t = HRDRawV2(fname)
+    elif version == 3:
+        fname_path = Path(fname)
+
+        # Version 3 expects a directory containing the parquet files
+        if not fname_path.exists():
+            raise FileNotFoundError(f"Path does not exist: {fname_path}")
+
+        if not fname_path.is_dir():
+            raise ValueError(
+                f"Version 3 requires a directory path, got file: {fname_path}"
+            )
+
+        t = HRDRawV3(fname_path)
     else:
-        raise ValueError(f"only version 1 and 2 supported, not {version}")
+        raise ValueError(f"only version 1, 2, and 3 supported, not {version}")
     return t

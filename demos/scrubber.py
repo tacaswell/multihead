@@ -552,7 +552,7 @@ def main():
         "--ver",
         type=int,
         default=2,
-        choices=[1, 2],
+        choices=[1, 2, 3],
         help="Data format version (default: 2)",
     )
     parser.add_argument("--roi-config", type=str, help="Path to ROI configuration file")

@@ -25,6 +25,7 @@ pyyaml = ">=6.0.2,<7"
 pytest = ">=8.3.5,<9"
 hdf5plugin = ">=6.0.0,<7"
 sparse = ">=0.17.0,<0.18"
+pyarrow = ">=22.0.0,<23"
 
 [feature.pre-commit.dependencies]
 pre-commit = ">=4.0.0,<5"
