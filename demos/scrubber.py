@@ -5,14 +5,20 @@ This module provides a matplotlib-based interactive interface for exploring
 raw detector data with frame selection capabilities.
 """
 
+import argparse
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import sparse
+from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.qt_compat import QtWidgets
+from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
-from multihead.file_io import HRDRawBase
+from multihead.file_io import HRDRawBase, open_data
 from multihead.raw_proc import find_crystal_range
 
 plt.switch_backend("qtagg")
@@ -41,7 +47,7 @@ class ImageScrubber:
             ROI definitions for each detector. If None, center 240x240 pixel ROIs are used.
         """
         self.raw = raw
-
+        self._detector_cache: dict[int, npt.NDArray[np.uint16]] = {}
         # Get available detectors from the raw data mapping
         self.detector_numbers = sorted(self.raw._detector_map.keys())
         self.current_detector = self.detector_numbers[0]
@@ -66,8 +72,6 @@ class ImageScrubber:
         # Initialize matplotlib objects that will be updated
         self._init_plot_objects()
         self._update_display()
-
-        self._detector_cache = {}
 
     def _initialize_detector_rois(self, detector_rois: DetectorROIs | None):
         """Initialize ROIs for all detectors, using provided config or defaults."""
@@ -127,7 +131,7 @@ class ImageScrubber:
             self.image_ax,
             self._on_roi_select,
             useblit=True,
-            button=[1],  # Only left mouse button
+            button=[MouseButton.LEFT],  # Only left mouse button
             minspanx=5,
             minspany=5,
             spancoords="pixels",
@@ -199,7 +203,6 @@ class ImageScrubber:
         self._colorbar = self.fig.colorbar(self.image_obj, ax=self.image_ax, shrink=0.6)
 
         # Initialize ROI rectangle (will be shown/hidden as needed)
-        from matplotlib.patches import Rectangle
 
         self.roi_rect = Rectangle(
             (0, 0), 1, 1, linewidth=2, edgecolor="red", facecolor="none", visible=False
@@ -234,13 +237,9 @@ class ImageScrubber:
     def _get_detector_data(self, detector_num: int) -> npt.NDArray[np.uint16]:
         if detector_num in self._detector_cache:
             return self._detector_cache[detector_num]
-        self._detector_cache[detector_num] = new_data = self.raw.get_detector(
-            detector_num
-        )
-        # keep at most 3 detector sets
-        for k in list(self._detector_cache):
-            if abs(k - detector_num) > 1:
-                del self._detector_cache[k]
+        raw_data = self.raw.get_detector(detector_num)
+
+        self._detector_cache[detector_num] = new_data = sparse.COO(raw_data)
         return new_data
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
@@ -252,14 +251,14 @@ class ImageScrubber:
         roi_data = detector_data[:, rslc, cslc]
 
         # Sum over spatial dimensions for each frame
-        return roi_data.sum(axis=(1, 2))
+        return roi_data.sum(axis=(1, 2)).todense()
 
     def _get_frame_sum_image(
         self, detector_num: int, start_frame: int, end_frame: int
     ) -> npt.NDArray:
         """Get summed image for the specified frame range."""
         detector_data = self._get_detector_data(detector_num)
-        return detector_data[start_frame : end_frame + 1].sum(axis=0)
+        return detector_data[start_frame : end_frame + 1].sum(axis=0).todense()
 
     def _update_display(self):
         """Update both the image and line plot displays."""
@@ -517,7 +516,7 @@ class ImageScrubber:
             photon_mask = summed_image > threshold
 
             # Use find_crystal_range to detect ROI
-            mask, detected_roi = find_crystal_range(
+            _, detected_roi = find_crystal_range(
                 photon_mask, opening_radius=5, closing_radius=10
             )
 
@@ -546,10 +545,6 @@ class ImageScrubber:
 
 def main():
     """Example usage of the ImageScrubber."""
-    import argparse
-    from pathlib import Path
-
-    from multihead.file_io import open_data
 
     parser = argparse.ArgumentParser(description="Launch image scrubber for HRD data")
     parser.add_argument("filename", help="Path to the data file")
