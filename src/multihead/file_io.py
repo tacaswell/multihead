@@ -11,6 +11,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, Self, cast
+from typing import overload, Literal
+
+from collections.abc import Generator
 
 import h5py
 import hdf5plugin  # noqa: F401
@@ -110,6 +113,12 @@ class HRDRawProtocol(Protocol):
             Nominal bin size in degrees
         """
 
+    def iter_detector_data(self) -> Generator[tuple[int, sparse.COO], None]:
+        """
+        Iterate through detectors
+        """
+        ...
+
 
 class HRDRawBase:
     _detector_map: dict[int, tuple[int, int]]
@@ -132,6 +141,10 @@ class HRDRawBase:
     def get_detector(self, n: int) -> sparse.COO:
         ds = cast(h5py.Dataset, self._h5_file[self._data_path])
         return sparse.COO(load_det(ds, *self._detector_map[n]))
+
+    def iter_detector_data(self) -> Generator[tuple[int, sparse.COO], None]:
+        for k in sorted(self._detector_map):
+            yield k, self.get_detector(k)
 
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         sums: dict[int, npt.NDArray[np.uint64]] = {
@@ -400,6 +413,10 @@ class HRDRawV3:
         # Extract the detector from the sparse array
         return self._sparse_data[detector_idx]
 
+    def iter_detector_data(self) -> Generator[tuple[int, sparse.COO], None]:
+        for k in sorted(self._detector_map):
+            yield k, self.get_detector(k)
+
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         """
         Get sum of all frames for each detector.
@@ -413,7 +430,7 @@ class HRDRawV3:
 
         for detector_num in range(1, 13):
             detector_data = self.get_detector(detector_num)
-            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64)
+            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64).todense()
 
         return sums
 
@@ -563,6 +580,14 @@ def load_det(
     The (stack) for a single detector.
     """
     return cast(npt.NDArray[np.uint16], dset[:, *det_slice(n, m)])
+
+
+@overload
+def open_data(fname: str | Path, version: Literal[1]) -> HRDRawV1: ...
+@overload
+def open_data(fname: str | Path, version: Literal[2]) -> HRDRawV2: ...
+@overload
+def open_data(fname: str | Path, version: Literal[3]) -> HRDRawV3: ...
 
 
 def open_data(fname: str | Path, version: int) -> HRDRawProtocol:

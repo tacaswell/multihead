@@ -6,12 +6,12 @@ raw detector data with frame selection capabilities.
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import sparse
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.patches import Rectangle
@@ -19,7 +19,7 @@ from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSele
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase, open_data
-from multihead.raw_proc import find_crystal_range
+from multihead.raw_proc import automatic_roi_selection, find_crystal_range
 
 plt.switch_backend("qtagg")
 
@@ -239,8 +239,8 @@ class ImageScrubber:
             return self._detector_cache[detector_num]
         raw_data = self.raw.get_detector(detector_num)
 
-        self._detector_cache[detector_num] = new_data = sparse.COO(raw_data)
-        return new_data
+        self._detector_cache[detector_num] = raw_data
+        return raw_data
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
         """Get ROI sum for a detector."""
@@ -430,8 +430,6 @@ class ImageScrubber:
                 header_lines = [
                     "# HRD Image Scrubber Export",
                     f"# Detector: {self.current_detector}",
-                    f"# Frame range: {self.frame_start}-{self.frame_end}",
-                    f"# Total frames in range: {self.frame_end - self.frame_start + 1}",
                     f"# ROI rows: {current_roi.rslc.start}-{current_roi.rslc.stop}",
                     f"# ROI columns: {current_roi.cslc.start}-{current_roi.cslc.stop}",
                     f"# Data columns: Arm_2theta_degrees{separator}ROI_Sum",
@@ -482,12 +480,6 @@ class ImageScrubber:
                         "name": "HRD Image Scrubber",
                         "version": "1.0",
                         "module": "multihead.demos.scrubber",
-                    },
-                    parameters={
-                        "total_detectors": len(self.detector_numbers),
-                        "source": "interactive_selection",
-                        "frame_range": f"{self.frame_start}-{self.frame_end}",
-                        "rois_count": len(self._detector_rois),
                     },
                 )
 
@@ -571,9 +563,13 @@ def main():
             print(f"Loaded ROI configuration from {roi_path}")
         else:
             print(f"ROI config file not found: {roi_path}")
-            print("Using full detector area as ROI")
+            print("No ROI configuration specified, automatically extracting")
+            sys.exit(-1)
     else:
-        print("No ROI configuration specified, using full detector area as ROI")
+        detector_rois = automatic_roi_selection(
+            raw, opening_radius=5, closing_radius=10
+        )
+        print("No ROI configuration specified, automatically extracting")
 
     # Create and show scrubber
     scrubber = ImageScrubber(raw, detector_rois)
