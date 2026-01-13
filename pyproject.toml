@@ -157,13 +157,11 @@ ignore = [
   "PIE804", # creating dict to ** it is fine
   "C408",   # using dict() is fine
   "NPY002", # allow the old numpy random generator
-  "PD901",  # df is a fine variable name
   "EM102",  # use an fstring in an exception if you want
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
   "UP015",  # "redundant" read mode is OK
   "UP031",  # % formats are fine
-  "UP038",  # Union syntax is not clearer
   "PLC2401", # allow greek to make equations clearer
   "PTH113",
   "SIM102",
