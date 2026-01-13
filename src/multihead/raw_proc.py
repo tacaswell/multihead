@@ -89,7 +89,25 @@ def compute_rois(
     )
 
 
-def correct_ttheta(arm_tth, offset, wavelength, average_wavelength):
+def scale_tth(tth, wavelength: float, target_wavelength: float):
+    """
+    Bring tth values to common wavelength.
+
+    Parameters
+    ----------
+    tth : array-like
+        Scatter angles in deg
+
+    wavelength : float
+        The wavelength the of the measured data.
+
+        Units must match *target_wavelength*
+
+    target_wavelength : float
+        The wavelength the to compute the scattering angles at.
+
+        Units must match *wavelength*
+    """
     π = np.pi
 
     def ttheta_to_q(tth, λ):
@@ -98,4 +116,4 @@ def correct_ttheta(arm_tth, offset, wavelength, average_wavelength):
     def q_to_ttheta(q, λ):
         return 2 * np.rad2deg(np.arcsin(λ / (4 * π) * q))
 
-    return q_to_ttheta(ttheta_to_q(arm_tth + offset, wavelength), average_wavelength)
+    return q_to_ttheta(ttheta_to_q(tth, wavelength), target_wavelength)
