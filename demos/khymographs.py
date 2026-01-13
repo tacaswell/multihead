@@ -8,9 +8,15 @@ import tqdm
 from matplotlib.widgets import Cursor
 
 from multihead.cli import get_base_parser
-from multihead.config import BankCalibration, CrystalROI, DetectorROIs, SpectraCalib
+from multihead.config import (
+    BankCalibration,
+    CrystalROI,
+    DetectorROIs,
+    SpectraCalib,
+    AnalyzerConfig,
+)
 from multihead.file_io import HRDRawBase, open_data
-from multihead.raw_proc import compute_rois, correct_ttheta
+from multihead.raw_proc import automatic_roi_selection, scale_tth
 
 
 def extract_khymo(
@@ -82,7 +88,7 @@ def all_khymographs(
 
 
 def integrate_simple(tth: npt.NDArray[np.floating], khymo: npt.NDArray):
-    return tth, khymo.sum(axis=1)
+    return tth, khymo.sum(axis=1).todense()
 
 
 # %%
@@ -170,7 +176,7 @@ def main():
         rois2 = roi_config
     else:
         print("Computing ROIs from detector sums")
-        rois2 = compute_rois(t.get_detector_sums())
+        rois2 = automatic_roi_selection(t)
 
     # Filter detectors if specific ones were requested
     if args.detectors is not None:
@@ -202,16 +208,20 @@ def main():
                 offset=offset,
                 scale=default_scale,
                 wavelength=default_wavelength,
-                center=128,  # center of mp3 detector
-                theta_i=np.rad2deg(
-                    np.arcsin(default_wavelength / (2 * 3.1355))
-                ),  # Si 111 Bragg angle
-                theta_d=2
-                * np.rad2deg(
-                    np.arcsin(default_wavelength / (2 * 3.1355))
-                ),  # perfectly aligned detector
-                crystal_roll=0.0,  # perfectly aligned crystal
-                crystal_yaw=0.0,  # perfectly aligned crystal
+                analyzer=AnalyzerConfig(
+                    R=910.0,  # Sample to analyzer distance in mm
+                    Rd=120.0,  # Analyzer to detector distance in mm
+                    center=128,  # center of mp3 detector
+                    theta_i=np.rad2deg(
+                        np.arcsin(default_wavelength / (2 * 3.1355))
+                    ),  # Si 111 Bragg angle
+                    theta_d=2
+                    * np.rad2deg(
+                        np.arcsin(default_wavelength / (2 * 3.1355))
+                    ),  # perfectly aligned detector
+                    crystal_roll=0.0,  # perfectly aligned crystal
+                    crystal_yaw=0.0,  # perfectly aligned crystal
+                ),
             )
             for det, offset in offsets.items()
         }
@@ -229,8 +239,6 @@ def main():
                 "default_wavelength_nm": default_wavelength,
                 "default_scale": default_scale,
             },
-            R=910.0,  # Sample to analyzer distance in mm
-            Rd=120.0,  # Analyzer to detector distance in mm
             pixel_pitch=0.055,  # Pixel pitch in mm (mp3 55um pixels)
         )
     calibs = calibration_config.calibrations
@@ -241,9 +249,8 @@ def main():
     fig, ax = plt.subplots(layout="constrained")
     lines = [
         ax.plot(
-            correct_ttheta(
-                tth,
-                calibs[d].offset,
+            scale_tth(
+                tth + calibs[d].offset,
                 calibs[d].wavelength,
                 calibration_config.average_wavelength,
             ),
@@ -261,9 +268,8 @@ def main():
     cmap = plt.get_cmap("viridis")
     cmap.set_under("w")
     for det, (tth, khymo) in all_khymos.items():
-        ctth = correct_ttheta(
-            tth,
-            calibs[det].offset,
+        ctth = scale_tth(
+            tth - calibs[det].offset,
             calibs[det].wavelength,
             calibration_config.average_wavelength,
         )
@@ -271,7 +277,7 @@ def main():
         fig_kyho.suptitle(f"Detector {det}")
         ax_d = fig_kyho.subplot_mosaic("AB", width_ratios=(1, 5), sharey=True)
         ax_d["B"].imshow(
-            khymo,
+            khymo.todense(),
             aspect="auto",
             extent=(
                 0,

@@ -6,10 +6,14 @@ from collections.abc import Mapping
 
 import numpy as np
 import numpy.typing as npt
+import scipy.signal
 import skimage.measure
 from skimage.morphology import isotropic_closing, isotropic_opening
+import sparse
 
+import multihead
 from .config import CrystalROI, DetectorROIs, SimpleSliceTuple
+from .file_io import HRDRawProtocol
 
 __all__ = ["compute_rois", "find_crystal_range"]
 
@@ -59,14 +63,40 @@ def find_crystal_range(
     return mask, CrystalROI(SimpleSliceTuple(minr, maxr), SimpleSliceTuple(minc, maxc))
 
 
+def automatic_roi_selection(
+    raw_data: HRDRawProtocol, *, window=900, **kwargs
+) -> DetectorROIs:
+    sums = {}
+    for det_number, data in raw_data.iter_detector_data():
+        simple = data.sum(axis=(2), dtype=np.uint32).todense().sum(axis=1)
+        locs, props = scipy.signal.find_peaks(simple, width=3, height=(None, None))
+
+        indx = np.argsort(props["peak_heights"])
+        print(props["peak_heights"][indx[-5::-1]])
+        peak_center = locs[indx[-1]]
+        print(f"{peak_center=}")
+        sums[det_number] = (
+            data[peak_center - window // 2 : peak_center + window // 2]
+            .sum(axis=(0), dtype=np.uint32)
+            .todense()
+        )
+        import matplotlib.pyplot as plt
+
+        fig, (ax1, ax2) = plt.subplots(2)
+        fig.suptitle(f"det {det_number}")
+        ax1.plot(simple)
+        ax1.plot(locs[indx], props["peak_heights"][indx])
+        ax2.imshow(sums[det_number], origin="lower")
+
+    return compute_rois(sums, **kwargs)
+
+
 def compute_rois(
     sums: Mapping[int, npt.NDArray[np.integer]],
     th: int = 2,
     closing_radius: int = 10,
     opening_radius: int = 10,
 ) -> DetectorROIs:
-    import multihead
-
     out: dict[int, CrystalROI] = {}
     for det, data in sums.items():
         _mask, croi = find_crystal_range(
@@ -117,3 +147,9 @@ def scale_tth(tth, wavelength: float, target_wavelength: float):
         return 2 * np.rad2deg(np.arcsin(λ / (4 * π) * q))
 
     return q_to_ttheta(ttheta_to_q(tth, wavelength), target_wavelength)
+
+
+def get_roi_sum(detector_series: sparse.COO, roi: CrystalROI) -> npt.NDArray:
+    rslc, cslc = roi.to_slices()
+    roi_data = detector_series[:, rslc, cslc]
+    return roi_data.sum(axis=(1, 2), dtype=np.uint32).todense()

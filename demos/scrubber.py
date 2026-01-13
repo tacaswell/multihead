@@ -19,7 +19,7 @@ from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSele
 
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase, open_data
-from multihead.raw_proc import find_crystal_range
+from multihead.raw_proc import find_crystal_range, automatic_roi_selection
 
 plt.switch_backend("qtagg")
 
@@ -239,8 +239,8 @@ class ImageScrubber:
             return self._detector_cache[detector_num]
         raw_data = self.raw.get_detector(detector_num)
 
-        self._detector_cache[detector_num] = new_data = sparse.COO(raw_data)
-        return new_data
+        self._detector_cache[detector_num] = raw_data
+        return raw_data
 
     def _get_roi_sum(self, detector_num: int) -> npt.NDArray:
         """Get ROI sum for a detector."""
@@ -571,9 +571,11 @@ def main():
             print(f"Loaded ROI configuration from {roi_path}")
         else:
             print(f"ROI config file not found: {roi_path}")
-            print("Using full detector area as ROI")
+            print("No ROI configuration specified, automatically extracting")
+            detector_rois = automatic_roi_selection(raw, th=15, opening_radius=5, closing_radius=10)
     else:
-        print("No ROI configuration specified, using full detector area as ROI")
+        detector_rois = automatic_roi_selection(raw)
+        print("No ROI configuration specified, automatically extracting")
 
     # Create and show scrubber
     scrubber = ImageScrubber(raw, detector_rois)

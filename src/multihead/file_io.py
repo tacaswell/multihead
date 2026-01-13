@@ -133,6 +133,10 @@ class HRDRawBase:
         ds = cast(h5py.Dataset, self._h5_file[self._data_path])
         return sparse.COO(load_det(ds, *self._detector_map[n]))
 
+    def iter_detector_data(self):
+        for k in self._detector_map:
+            yield k, self.get_detector(k)
+
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         sums: dict[int, npt.NDArray[np.uint64]] = {
             d + 1: np.zeros((256, 256), dtype=np.uint64)
@@ -400,6 +404,10 @@ class HRDRawV3:
         # Extract the detector from the sparse array
         return self._sparse_data[detector_idx]
 
+    def iter_detector_data(self):
+        for k in self._detector_map:
+            yield k, self.get_detector(k)
+
     def get_detector_sums(self) -> dict[int, npt.NDArray[np.uint64]]:
         """
         Get sum of all frames for each detector.
@@ -413,7 +421,7 @@ class HRDRawV3:
 
         for detector_num in range(1, 13):
             detector_data = self.get_detector(detector_num)
-            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64)
+            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64).todense()
 
         return sums
 
