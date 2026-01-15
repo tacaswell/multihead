@@ -216,14 +216,15 @@ class HRDRawV1(HRDRawBase):
         return start_tth + bin_size * np.arange(Npts, dtype=float)
 
     def get_monitor(self) -> npt.NDArray[np.float64]:
-        return {_.desc: _.data for _ in self._mda.scan.d}
+        d = next(_ for _ in self._mda.scan.d if _.desc == 'Monitor')
+        return np.asarray(d.data)
 
     def get_nominal_bin(self) -> float:
         sc = self._mda.scan_config
         (steps_per_bin,) = sc["MCS prescale"].value
         (step_size,) = sc["encoder resolution"].value
 
-        return steps_per_bin * step_size
+        return float(steps_per_bin * step_size)
 
 
 class HRDRawV2(HRDRawBase):
