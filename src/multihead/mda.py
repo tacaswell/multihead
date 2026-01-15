@@ -58,6 +58,8 @@ class scanDim:
 
         return s
 
+    __repr__ = __str__
+
 
 # scanPositioner holds all the information associated with a single positioner, and
 # all the data written and acquired by that positioner during an entire (possibly
@@ -108,6 +110,8 @@ class scanPositioner:
         )
         return s
 
+    __repr__ = __str__
+
 
 # scanDetector holds all the information associated with a single detector, and
 # all the data acquired by that detector during an entire (possibly multidimensional) scan.
@@ -142,6 +146,23 @@ class scanDetector:
         )
         return s
 
+    def __repr__(self):
+        return f"<{self.desc}, {self.name}, {self.fieldName}, {self.shape()}>"
+
+    def __len__(self):
+        return len(self.data)
+
+    def shape(self):
+        data = self.data
+        if use_numpy:
+            return data.shape
+        else:
+            out = []
+            dimString = str(len(data))
+            while ((n := len(data)) > 0) and (isinstance(data[0], list | tuple)):
+                out.append(n)
+            return tuple(out)
+
 
 # scanTrigger holds all the information associated with a single detector trigger.
 class scanTrigger:
@@ -153,6 +174,8 @@ class scanTrigger:
     def __str__(self):
         s = "trigger %d (%s), command=%f\n" % (self.number, self.name, self.command)
         return s
+
+    __repr__ = __str__
 
 
 # scanBuf is a private data structure used to assemble data that will be written to an MDA file.
