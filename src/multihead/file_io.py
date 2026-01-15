@@ -173,10 +173,35 @@ class HRDRawBase:
     def get_arm_tth(self) -> npt.NDArray[np.float64]: ...
     def get_monitor(self) -> npt.NDArray[np.float64]: ...
     def get_nominal_bin(self) -> float: ...
+    def get_metadata(self) -> dict[str, SimpleConfigEntry]: ...
 
 
 class HRDRawV1(HRDRawBase):
     _mda: MDA
+    _key_mapping = {
+        v: k
+        for k, v in {
+            "Run no.": int,
+            "No. steps": 'NPTS',
+            "Scan Comment": 'comment1',
+            "Sample Comment": 'comment2',
+            "User sample name": 'sample_name',
+            "Composition": 'chemical_formula',
+            "Proposal number": 'proposal_no',
+            "Email(s)": 'email',
+            "Temp": 'Collection T',
+            "Barcode ID": 'Barcode_id',
+            "Start 2theta": 'start_tth',
+            "End 2theta": 'end_tth',
+            # "Nominal 2theta step": float, # special casee
+            "Time per step": 'Time/step',
+            "Actual 2theta step": 'actual step size slew scan',
+            # special case
+            # "200/Ring Current[0]": float,
+            # "Monitor I0 [0]": float,
+            # "Monitor I1 [0]": float,
+        }.items()
+    }
 
     def __init__(self, mda_path: Path, image_path: Path, **kwargs: Any):
         # TODO make opening this lazy?
@@ -216,7 +241,7 @@ class HRDRawV1(HRDRawBase):
         return start_tth + bin_size * np.arange(Npts, dtype=float)
 
     def get_monitor(self) -> npt.NDArray[np.float64]:
-        d = next(_ for _ in self._mda.scan.d if _.desc == 'Monitor')
+        d = next(_ for _ in self._mda.scan.d if _.desc == "Monitor")
         return np.asarray(d.data)
 
     def get_nominal_bin(self) -> float:
@@ -225,6 +250,9 @@ class HRDRawV1(HRDRawBase):
         (step_size,) = sc["encoder resolution"].value
 
         return float(steps_per_bin * step_size)
+
+    def get_metadata(self) -> dict[str, SimpleConfigEntry]:
+        return dict(self._mda.scan_config)
 
 
 class HRDRawV2(HRDRawBase):
@@ -285,7 +313,10 @@ class HRDRawV2(HRDRawBase):
         return self._h5_file[self._monitor_path][:]
 
     def get_nominal_bin(self) -> float:
-        return self._md["Nominal 2theta step"].value
+        return float(self._md["Nominal 2theta step"].value)
+
+    def get_metadata(self) -> dict[str, SimpleConfigEntry]:
+        return dict(self._md)
 
 
 class HRDRawV3:
@@ -300,6 +331,7 @@ class HRDRawV3:
     data_dir : Path
         Directory containing images.parquet and scalars.parquet files
     """
+
     _sparse_data: sparse.COO
     _tth: npt.NDArray[np.float64]
     _monitor: npt.NDArray[np.float64]
@@ -366,9 +398,7 @@ class HRDRawV3:
 
         # Extract nominal_bin from scalars metadata
         if b"nominal_bin" in scalars_table.schema.metadata:
-            self._nominal_bin = float(
-                scalars_table.schema.metadata[b"nominal_bin"]
-            )
+            self._nominal_bin = float(scalars_table.schema.metadata[b"nominal_bin"])
         else:
             raise ValueError(
                 f"Missing required metadata 'nominal_bin' in {scalars_path}"
