@@ -178,7 +178,7 @@ class HRDRawBase:
 class HRDRawV1(HRDRawBase):
     _mda: MDA
 
-    def __init__(self, mda_path: Path, image_path: Path, **kwargs):
+    def __init__(self, mda_path: Path, image_path: Path, **kwargs: Any):
         # TODO make opening this lazy?
         self._h5_file = h5py.File(image_path)
 
@@ -198,7 +198,7 @@ class HRDRawV1(HRDRawBase):
         super().__init__(**kwargs)
 
     @classmethod
-    def from_root(cls, root: str | Path, **kwargs) -> Self:
+    def from_root(cls: type[Self], root: str | Path, **kwargs: Any) -> Self:
         root_p = Path(root)
         return cls(root_p.with_suffix(".mda"), root_p.with_suffix(".h5"), **kwargs)
 
