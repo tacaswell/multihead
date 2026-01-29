@@ -6,7 +6,6 @@ multihead: Code to work with example data from APS to prep for HRD
 
 from __future__ import annotations
 
-# from ._version import version as __version__
-__version__ = "0.0"
+from ._version import version as __version__
 
 __all__ = ["__version__"]

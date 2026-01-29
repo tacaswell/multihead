@@ -25,8 +25,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-# dynamic = ["version"]
-version = "0.0"
+dynamic = ["version"]
 dependencies = ['scikit-image', 'numpy>2', "h5py"]
 
 [project.optional-dependencies]
@@ -52,6 +51,10 @@ Homepage = "https://github.com/tacaswell/multihead"
 Discussions = "https://github.com/tacaswell/multihead/discussions"
 Changelog = "https://github.com/tacaswell/multihead/releases"
 
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/multihead/_version.py"
 
 [tool.hatch.envs.default]
 features = ["test"]
