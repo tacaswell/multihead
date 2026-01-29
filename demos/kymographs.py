@@ -21,11 +21,11 @@ from multihead.raw_proc import automatic_roi_selection, scale_tth
 # %%
 
 
-def extract_khymo(
+def extract_kymo(
     detector_series: sparse.COO, roi: CrystalROI | None = None
 ) -> npt.NDArray:
     """
-    Extract the khymograph for a single detector sequence.
+    Extract the kymograph for a single detector sequence.
 
     Parameters
     ----------
@@ -48,11 +48,11 @@ def extract_khymo(
 
 
 # %%
-def get_khymograph(
+def get_kymograph(
     raw: HRDRawBase, detector: int, roi: CrystalROI | None = None
 ) -> tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]:
     """
-    Extract the khymograph for a single detector sequence.
+    Extract the kymograph for a single detector sequence.
 
     Parameters
     ----------
@@ -63,21 +63,21 @@ def get_khymograph(
        The ROI to consider.  If None, sum whole detector
 
     """
-    khymo = extract_khymo(raw.get_detector(detector), roi)
+    kymo = extract_kymo(raw.get_detector(detector), roi)
 
     tth = raw.get_arm_tth()
 
-    return tth, khymo
+    return tth, kymo
 
 
 # %%
 
 
-def all_khymographs(
+def all_kymographs(
     raw: HRDRawBase, rois: dict[int, CrystalROI]
 ) -> dict[int, tuple[npt.NDArray[np.floating], npt.NDArray[np.uint16]]]:
     return {
-        det: get_khymograph(raw, det, roi)
+        det: get_kymograph(raw, det, roi)
         for det, roi in tqdm.tqdm(rois.items(), desc="getting hkymos")
     }
 
@@ -85,15 +85,15 @@ def all_khymographs(
 # %%
 
 
-def integrate_simple(tth: npt.NDArray[np.floating], khymo: npt.NDArray):
-    return tth, khymo.sum(axis=1)
+def integrate_simple(tth: npt.NDArray[np.floating], kymo: npt.NDArray):
+    return tth, kymo.sum(axis=1)
 
 
 # %%
 
 
 def parse_args():
-    parser = get_base_parser("Generate and visualize khymographs from detector data")
+    parser = get_base_parser("Generate and visualize kymographs from detector data")
     parser.add_argument(
         "--ref-index",
         type=int,
@@ -186,10 +186,10 @@ def main():
     else:
         print(f"Processing all detectors: {sorted(rois2.rois.keys())}")
 
-    all_khymos = all_khymographs(t, rois2.rois)
+    all_kymos = all_kymographs(t, rois2.rois)
 
     flats = {
-        det: integrate_simple(tth, khymo) for det, (tth, khymo) in all_khymos.items()
+        det: integrate_simple(tth, kymo) for det, (tth, kymo) in all_kymos.items()
     }
 
     # Use calibration config if available, otherwise estimate offsets and create calibration
@@ -229,7 +229,7 @@ def main():
             software={
                 "name": "multihead",
                 "version": "dev",
-                "script": "khymographs.py",
+                "script": "kymographs.py",
             },
             parameters={
                 "num_detectors": len(offsets),
@@ -265,7 +265,7 @@ def main():
 
     cmap = plt.get_cmap("viridis")
     cmap.set_under("w")
-    for det, (tth, khymo) in all_khymos.items():
+    for det, (tth, kymo) in all_kymos.items():
         ctth = scale_tth(
             tth - calibs[det].offset,
             calibs[det].wavelength,
@@ -275,11 +275,11 @@ def main():
         fig_kyho.suptitle(f"Detector {det}")
         ax_d = fig_kyho.subplot_mosaic("AB", width_ratios=(1, 5), sharey=True)
         ax_d["B"].imshow(
-            khymo,
+            kymo,
             aspect="auto",
             extent=(
                 0,
-                khymo.shape[1],
+                kymo.shape[1],
                 ctth.min(),
                 ctth.max(),
             ),
