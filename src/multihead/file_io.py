@@ -7,18 +7,16 @@ import json
 import re
 import shutil
 import subprocess
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, Self, cast
-from typing import overload, Literal
-
-from collections.abc import Generator
+from typing import Any, ClassVar, Literal, Protocol, Self, cast, overload
 
 import h5py
 import hdf5plugin  # noqa: F401
 import numpy as np
 import numpy.typing as npt
+import pyarrow as pa
 import pyarrow.parquet as pq
 import sparse
 import tqdm
@@ -271,7 +269,7 @@ class HRDRawV2(HRDRawBase):
 
         return out
 
-    def __init__(self, path: Path, **kwargs):
+    def __init__(self, path: Path | str, **kwargs):
         # TODO make opening this lazy?
         self._h5_file = h5py.File(path)
         self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))
@@ -287,6 +285,67 @@ class HRDRawV2(HRDRawBase):
         return self._md["Nominal 2theta step"].value
 
 
+def _find_parquet_files(data_dir: Path, base_name: str) -> list[Path]:
+    """
+    Find parquet files matching either a single file or a series.
+
+    Parameters
+    ----------
+    data_dir : Path
+        Directory to search in
+    base_name : str
+        Base name of files (e.g., 'images' or 'scalars')
+
+    Returns
+    -------
+    list[Path]
+        List of paths in sorted order. If a single file exists,
+        returns [single_file]. If a series exists, returns all files in order.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no matching files are found
+    ValueError
+        If there are gaps in the series numbering
+    """
+    single_file = data_dir / f"{base_name}.parquet"
+
+    if single_file.exists():
+        return [single_file]
+
+    # Look for series like base_0.parquet, base_1.parquet, ...
+    # or base_00.parquet, base_01.parquet, ...
+    pattern_files = list(data_dir.glob(f"{base_name}_*.parquet"))
+
+    if not pattern_files:
+        raise FileNotFoundError(
+            f"No parquet files found for '{base_name}' in {data_dir}"
+        )
+
+    # Extract numbers from filenames
+    number_pattern = re.compile(rf"{re.escape(base_name)}_(\d+)\.parquet")
+
+    file_numbers = []
+    for path in pattern_files:
+        match = number_pattern.match(path.name)
+        if match:
+            file_numbers.append((int(match.group(1)), path))
+
+    # Sort by number
+    file_numbers.sort(key=lambda x: x[0])
+
+    # Verify no gaps
+    numbers = [num for num, _ in file_numbers]
+    expected = list(range(len(numbers)))
+    if numbers != expected:
+        raise ValueError(
+            f"Gap detected in {base_name} series. Found {numbers}, expected {expected}"
+        )
+
+    return [path for _, path in file_numbers]
+
+
 class HRDRawV3:
     """
     Reader for parquet-based sparse data format.
@@ -299,6 +358,7 @@ class HRDRawV3:
     data_dir : Path
         Directory containing images.parquet and scalars.parquet files
     """
+
     _sparse_data: sparse.COO
     _tth: npt.NDArray[np.float64]
     _monitor: npt.NDArray[np.float64]
@@ -319,7 +379,8 @@ class HRDRawV3:
         Parameters
         ----------
         data_dir : Path
-            Directory containing images.parquet and scalars.parquet files
+            Directory containing images.parquet and scalars.parquet files,
+            or series of 0-indexed files like ``{base}_{n:03d}.parquet``
         detector_map : Sequence[Sequence[int]]
             Detector numbering map (same as HRDRawBase)
 
@@ -328,21 +389,16 @@ class HRDRawV3:
         FileNotFoundError
             If images.parquet or scalars.parquet are missing
         ValueError
-            If data_dir is not a directory
+            If data_dir is not a directory or if there are gaps in file series
         """
         data_dir = Path(data_dir)
 
         if not data_dir.is_dir():
             raise ValueError(f"Expected a directory, got: {data_dir}")
 
-        images_path = data_dir / "images.parquet"
-        scalars_path = data_dir / "scalars.parquet"
-
-        if not images_path.exists():
-            raise FileNotFoundError(f"Missing required file: {images_path}")
-
-        if not scalars_path.exists():
-            raise FileNotFoundError(f"Missing required file: {scalars_path}")
+        # Find files (either single or series)
+        images_paths = _find_parquet_files(data_dir, "images")
+        scalars_paths = _find_parquet_files(data_dir, "scalars")
 
         # Set up detector map
         self._detector_map = {}
@@ -351,26 +407,33 @@ class HRDRawV3:
                 self._detector_map[det_number] = (k, j)
 
         # Read the sparse detector images
-        images_table = pq.read_table(images_path)
-        self._sparse_data = sparse.COO(
-            [images_table[k] for k in ["detector", "frame", "row", "col"]],
-            data=images_table["data"],
-            shape=json.loads(images_table.schema.metadata[b"shape"]),
+        sparse_chunks = []
+        for path in images_paths:
+            images_table = pq.read_table(path)
+            sparse_chunk = sparse.COO(
+                [images_table[k] for k in ["detector", "frame", "row", "col"]],
+                data=images_table["data"],
+                shape=json.loads(images_table.schema.metadata[b"shape"]),
+            )
+            sparse_chunks.append(sparse_chunk)
+
+        self._sparse_data = cast(
+            sparse.COO, sparse.concatenate(sparse_chunks, axis=1).asformat("coo")
         )
 
-        # Read scalars
-        scalars_table = pq.read_table(scalars_path)
+        # Read scalars (concat_tables handles single or multiple files uniformly)
+        scalars_tables = [pq.read_table(path) for path in scalars_paths]
+        scalars_table = pa.concat_tables(scalars_tables)
+
         self._tth = scalars_table["tth"].to_numpy()
         self._monitor = scalars_table["monitor"].to_numpy()
 
         # Extract nominal_bin from scalars metadata
         if b"nominal_bin" in scalars_table.schema.metadata:
-            self._nominal_bin = float(
-                scalars_table.schema.metadata[b"nominal_bin"]
-            )
+            self._nominal_bin = float(scalars_table.schema.metadata[b"nominal_bin"])
         else:
             raise ValueError(
-                f"Missing required metadata 'nominal_bin' in {scalars_path}"
+                f"Missing required metadata 'nominal_bin' in {scalars_paths[0]}"
             )
 
     @classmethod
