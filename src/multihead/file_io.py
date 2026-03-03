@@ -646,14 +646,30 @@ def load_det(
 
 
 @overload
-def open_data(fname: str | Path, version: Literal[1]) -> HRDRawV1: ...
+def open_data(
+    fname: str | Path,
+    version: Literal[1],
+    detector_map: Sequence[Sequence[int]] | None = None,
+) -> HRDRawV1: ...
 @overload
-def open_data(fname: str | Path, version: Literal[2]) -> HRDRawV2: ...
+def open_data(
+    fname: str | Path,
+    version: Literal[2],
+    detector_map: Sequence[Sequence[int]] | None = None,
+) -> HRDRawV2: ...
 @overload
-def open_data(fname: str | Path, version: Literal[3]) -> HRDRawV3: ...
+def open_data(
+    fname: str | Path,
+    version: Literal[3],
+    detector_map: Sequence[Sequence[int]] | None = None,
+) -> HRDRawV3: ...
 
 
-def open_data(fname: str | Path, version: int) -> HRDRawProtocol:
+def open_data(
+    fname: str | Path,
+    version: int,
+    detector_map: Sequence[Sequence[int]] | None = None,
+) -> HRDRawProtocol:
     """
     Open raw data file and return appropriate reader.
 
@@ -665,17 +681,25 @@ def open_data(fname: str | Path, version: int) -> HRDRawProtocol:
         and scalars.parquet files.
     version : int
         Format version: 1, 2, or 3
+    detector_map : Sequence[Sequence[int]], optional
+        Detector layout map. If None, uses default map for 12 detectors.
+        For single detector simulations, use ((1,),).
+        Default: ((10, 9, 6, 5, 2, 1), (12, 11, 8, 7, 4, 3))
 
     Returns
     -------
     reader : HRDRawProtocol
         Appropriate reader instance for the file version
     """
+    kwargs = {}
+    if detector_map is not None:
+        kwargs["detector_map"] = detector_map
+
     t: HRDRawProtocol
     if version == 1:
-        t = HRDRawV1.from_root(fname)
+        t = HRDRawV1.from_root(fname, **kwargs)
     elif version == 2:
-        t = HRDRawV2(fname)
+        t = HRDRawV2(fname, **kwargs)
     elif version == 3:
         fname_path = Path(fname)
 
@@ -688,7 +712,7 @@ def open_data(fname: str | Path, version: int) -> HRDRawProtocol:
                 f"Version 3 requires a directory path, got file: {fname_path}"
             )
 
-        t = HRDRawV3(fname_path)
+        t = HRDRawV3(fname_path, **kwargs)
     else:
         raise ValueError(f"only version 1, 2, and 3 supported, not {version}")
     return t

@@ -243,7 +243,7 @@ def main():
     closing_radius = args.closing_radius
     thresholds = args.thresholds
 
-    t = open_data(args.filename, args.ver)
+    t = open_data(args.filename, args.ver, detector_map=args.detector_map)
     sums = t.get_detector_sums()
 
     fig = plt.figure(figsize=(15, 9), layout="compressed")

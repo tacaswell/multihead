@@ -17,6 +17,7 @@ from matplotlib.backends.qt_compat import QtWidgets
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 
+from multihead.cli import parse_detector_map
 from multihead.config import CrystalROI, DetectorROIs, SimpleSliceTuple
 from multihead.file_io import HRDRawBase, open_data
 from multihead.raw_proc import automatic_roi_selection, find_crystal_range
@@ -548,11 +549,19 @@ def main():
         help="Data format version (default: 2)",
     )
     parser.add_argument("--roi-config", type=str, help="Path to ROI configuration file")
+    parser.add_argument(
+        "--detector-map",
+        type=parse_detector_map,
+        help="Detector layout map as JSON list of lists. "
+        "Default: '[[10, 9, 6, 5, 2, 1], [12, 11, 8, 7, 4, 3]]' (APS configuration). "
+        "For single detector simulations use: '[[1]]'",
+        default=None,
+    )
 
     args = parser.parse_args()
 
     # Load raw data
-    raw = open_data(args.filename, args.ver)
+    raw = open_data(args.filename, args.ver, detector_map=args.detector_map)
 
     # Load ROIs if specified
     detector_rois = None

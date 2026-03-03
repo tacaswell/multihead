@@ -4,6 +4,7 @@ Convert HDF5 raw data files to sparse parquet format.
 This script converts raw detector data and associated metadata (tth, monitor)
 from HDF5 files into parquet files with sparse array representation.
 """
+
 import argparse
 import json
 import sys
@@ -16,11 +17,13 @@ import pyarrow.parquet as pq
 import sparse
 import tqdm
 
+from multihead.cli import parse_detector_map
 from multihead.file_io import open_data
 
 
 class OnExistAction(Enum):
     """Actions to take when output files already exist."""
+
     FAIL = "fail"
     SKIP = "skip"
     WARN_OVERWRITE = "warn-overwrite"
@@ -32,6 +35,7 @@ def convert_file(
     output_dir: Path,
     version: int,
     on_exist: OnExistAction,
+    detector_map=None,
 ) -> tuple[Path, Path] | None:
     """
     Convert a single HDF5 file to parquet format.
@@ -53,7 +57,7 @@ def convert_file(
         Path to the scalars (tth, monitor) parquet file
     """
     # Open the raw data
-    raw = open_data(input_path, version)
+    raw = open_data(input_path, version, detector_map=detector_map)
 
     # Create output directory if needed
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -78,7 +82,7 @@ def convert_file(
                 f"Output files already exist for {input_path.stem}. "
                 f"Use --on-exist to control this behavior."
             )
-        elif on_exist == OnExistAction.SKIP:
+        if on_exist == OnExistAction.SKIP:
             tqdm.tqdm.write(f"⚠ Skipping {input_path.name} (output exists)")
             return None
         elif on_exist == OnExistAction.WARN_OVERWRITE:
@@ -99,7 +103,9 @@ def convert_file(
         names=("detector", "frame", "row", "col", "data"),
         metadata={"shape": json.dumps(all_data.shape)},
     )
-    pq.write_table(images_table, images_path, compression="snappy", write_statistics=False)
+    pq.write_table(
+        images_table, images_path, compression="snappy", write_statistics=False
+    )
 
     # Extract and write scalars (tth and monitor)
     tth = raw.get_arm_tth()
@@ -155,6 +161,14 @@ def main():
             "'overwrite' (silently overwrite)"
         ),
     )
+    parser.add_argument(
+        "--detector-map",
+        type=parse_detector_map,
+        help="Detector layout map as JSON list of lists. "
+        "Default: '[[10, 9, 6, 5, 2, 1], [12, 11, 8, 7, 4, 3]]' (APS configuration). "
+        "For single detector simulations use: '[[1]]'",
+        default=None,
+    )
 
     args = parser.parse_args()
 
@@ -165,7 +179,7 @@ def main():
     for input_file in tqdm.tqdm(args.input_files, desc="Converting files"):
         try:
             result = convert_file(
-                input_file, args.output_dir, args.version, on_exist
+                input_file, args.output_dir, args.version, on_exist, args.detector_map
             )
             if result is not None:
                 images_path, scalars_path = result

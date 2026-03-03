@@ -222,12 +222,13 @@ class BankCalibration:
     """
 
     calibrations: dict[int, SpectraCalib]
+    # rois: DetectorROIs
     software: dict[str, str]
     parameters: dict[str, Any]
     pixel_pitch: float
 
     @property
-    def average_wavelength(self):
+    def average_wavelength(self) -> float:
         return sum(det.wavelength for det in self.calibrations.values()) / len(
             self.calibrations
         )

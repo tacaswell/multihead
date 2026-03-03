@@ -166,7 +166,7 @@ def main():
     roi_config, calibration_config = load_configs(args)
 
     # Initialize the RawHRPD11BM instance with command line arguments
-    t = open_data(args.filename, args.ver)
+    t = open_data(args.filename, args.ver, detector_map=args.detector_map)
 
     # Use provided ROI config if available, otherwise compute ROIs
     if roi_config is not None:
@@ -188,9 +188,7 @@ def main():
 
     all_kymos = all_kymographs(t, rois2.rois)
 
-    flats = {
-        det: integrate_simple(tth, kymo) for det, (tth, kymo) in all_kymos.items()
-    }
+    flats = {det: integrate_simple(tth, kymo) for det, (tth, kymo) in all_kymos.items()}
 
     # Use calibration config if available, otherwise estimate offsets and create calibration
     if calibration_config is None:

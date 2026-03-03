@@ -87,7 +87,7 @@ plt.show(block=False)
 # This represents the correction, needed for data reduction as we experimentally
 # know the arm position and need to compute the true scattering angle.
 # %%
-fig,ax = plt.subplots(layout="constrained")
+fig, ax = plt.subplots(layout="constrained")
 arm_angles = np.arange(5, 50, 5)[::-1]
 cmap = mpl.colormaps["viridis"]
 
@@ -96,7 +96,7 @@ corrected_tths, _ = tth_from_z(z.reshape(1, -1), arm_angles.reshape(-1, 1), cfg)
 for corr_tth, arm_tth, color in zip(
     corrected_tths, arm_angles, cmap(np.linspace(0, 1, len(arm_angles))), strict=True
 ):
-    ax.plot(z,  - corr_tth + arm_tth, label=rf"$2\Theta = {arm_tth:g}°$", color=color)
+    ax.plot(z, -corr_tth + arm_tth, label=rf"$2\Theta = {arm_tth:g}°$", color=color)
 
 ax.legend()
 ax.set_ylabel(r"$2\Theta - 2\theta$ (deg)")
