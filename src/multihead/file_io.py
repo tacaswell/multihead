@@ -214,7 +214,7 @@ class HRDRawV1(HRDRawBase):
         return start_tth + bin_size * np.arange(Npts, dtype=float)
 
     def get_monitor(self) -> npt.NDArray[np.float64]:
-        return {_.desc: _.data for _ in self._mda.scan.d}
+        return self._mda.detectors["Monitor"]
 
     def get_nominal_bin(self) -> float:
         sc = self._mda.scan_config
