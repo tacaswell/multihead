@@ -162,3 +162,5 @@ Thumbs.db
 *.egg-info
 
 data/
+
+.vscode
