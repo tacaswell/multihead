@@ -482,6 +482,7 @@ class ImageScrubber:
                         "version": "1.0",
                         "module": "multihead.demos.scrubber",
                     },
+                    parameters={},
                 )
 
                 # Save to YAML
