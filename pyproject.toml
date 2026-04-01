@@ -190,3 +190,9 @@ disable = ["fixme"]
 
 [tool.codespell]
 ignore-words-list = "tha"
+
+[tool.pyright]
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownParameterType = "none"
