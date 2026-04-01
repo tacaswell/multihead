@@ -234,7 +234,7 @@ def _compute_L3_eq13(
 def arm_from_z(
     z: ArrayLike,
     scatter_tth: ArrayLike,
-    config: AnalyzerConfig,  # pyright: ignore[reportRedeclaration]
+    config: AnalyzerConfig,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and a scattering angle, compute the arm 2ϴ where scatter
@@ -255,9 +255,10 @@ def arm_from_z(
     -------
     arm_tth, phi
     """
-    z: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
+    z_arr: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
+    del z
     if config.detector_roll != 0:
-        z *= np.cos(np.deg2rad(config.detector_roll))
+        z_arr *= np.cos(np.deg2rad(config.detector_roll))
 
     # pull out and convert all angles to radians
     det_yaw = TrigAngle.from_deg(config.detector_yaw)
@@ -287,7 +288,7 @@ def arm_from_z(
     # step 6: when stable put arm tth from 2 in output
 
     # step 1
-    phi = TrigAngle.from_rad(np.arctan(z / ((config.R + config.Rd) * tth.sin)))
+    phi = TrigAngle.from_rad(np.arctan(z_arr / ((config.R + config.Rd) * tth.sin)))
 
     for _ in range(9):
         # step 2
@@ -310,7 +311,7 @@ def arm_from_z(
 
         # step 4
         new_phi = _compute_new_phi_eq15(
-            z, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+            z_arr, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
         )
 
         # step 5
@@ -324,7 +325,7 @@ def arm_from_z(
 def tth_from_z(
     z: ArrayLike,
     arm_tth: ArrayLike,
-    config: AnalyzerConfig,  # pyright: ignore[reportRedeclaration]
+    config: AnalyzerConfig,
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
     Given a range of z and arm 2ϴ, compute the true scatter 2θ
@@ -344,9 +345,10 @@ def tth_from_z(
     -------
     tth, phi
     """
-    z: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
+    z_arr: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
+    del z
     if config.detector_roll != 0:
-        z *= np.cos(np.deg2rad(config.detector_roll))
+        z_arr *= np.cos(np.deg2rad(config.detector_roll))
 
     # pull out and convert all angles to radians
     det_yaw = TrigAngle.from_deg(config.detector_yaw)
@@ -379,7 +381,7 @@ def tth_from_z(
     arm_tth_i = TrigAngle.from_rad(arm_tth.angle - theta_i.angle)
     arm_tth_d = TrigAngle.from_rad(arm_tth.angle - theta_d.angle)
     phi = TrigAngle.from_rad(
-        np.arctan(z / ((Rp + config.Rd) * arm_tth_i.sin))
+        np.arctan(z_arr / ((Rp + config.Rd) * arm_tth_i.sin))
     )
 
     for _ in range(9):
@@ -404,7 +406,7 @@ def tth_from_z(
 
         # step 4 - use eq 15 to get updated phi
         new_phi = _compute_new_phi_eq15(
-            z, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+            z_arr, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
         )
 
         # step 5

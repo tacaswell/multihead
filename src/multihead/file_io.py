@@ -110,6 +110,7 @@ class HRDRawProtocol(Protocol):
         float
             Nominal bin size in degrees
         """
+        ...
 
     def iter_detector_data(self) -> Generator[tuple[int, sparse.COO], None]:
         """
@@ -260,7 +261,9 @@ class HRDRawV2(HRDRawBase):
         def split_key(k: str) -> tuple[str, str]:
             if "(" not in k:
                 return k.strip(), ""
-            return tuple(x.strip() for x in re.match(r"([^(]+)\(([^)]+)\)", k).groups())
+            m = re.match(r"([^(]+)\(([^)]+)\)", k)
+            assert m is not None
+            return m.group(1).strip(), m.group(2).strip()
 
         out = {}
         for k, v in parse_comments(md).items():
@@ -272,14 +275,13 @@ class HRDRawV2(HRDRawBase):
     def __init__(self, path: Path | str, **kwargs):
         # TODO make opening this lazy?
         self._h5_file = h5py.File(path)
-        self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))
+        self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))  # pyright: ignore[reportArgumentType]
         super().__init__(**kwargs)
 
     def get_arm_tth(self) -> npt.NDArray[np.float64]:
-        return self._h5_file[self._tth_path][:]
-
+        return self._h5_file[self._tth_path][:]  # pyright: ignore[reportReturnType, reportIndexIssue]
     def get_monitor(self) -> npt.NDArray[np.float64]:
-        return self._h5_file[self._monitor_path][:]
+        return self._h5_file[self._monitor_path][:]  # pyright: ignore[reportReturnType, reportIndexIssue]
 
     def get_nominal_bin(self) -> float:
         return self._md["Nominal 2theta step"].value
@@ -493,7 +495,8 @@ class HRDRawV3:
 
         for detector_num in range(1, 13):
             detector_data = self.get_detector(detector_num)
-            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64).todense()
+            # sparse stubs incorrectly type .sum() as returning NDArray rather than COO
+            sums[detector_num] = detector_data.sum(axis=0, dtype=np.uint64).todense()  # pyright: ignore[reportAttributeAccessIssue]
 
         return sums
 
@@ -557,7 +560,7 @@ def rechunk_in_place(file_in: str | Path, *, n_frames: int = 1000) -> None:
             actual_chunk_size = min(read_ds.shape[0], n_frames)
             target_chunks = (actual_chunk_size, 260, 260)
 
-            if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:
+            if dest_dsname in fin and fin[dest_dsname].chunks == target_chunks:  # pyright: ignore[reportAttributeAccessIssue]
                 return
 
             # block_size = 0 let Bitshuffle choose its value

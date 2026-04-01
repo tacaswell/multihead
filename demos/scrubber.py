@@ -9,11 +9,14 @@ import argparse
 import sys
 from pathlib import Path
 
+import sparse
+
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 from matplotlib.backend_bases import MouseButton
-from matplotlib.backends.qt_compat import QtWidgets
+# matplotlib's qt_compat stubs don't declare the re-exported Qt bindings
+from matplotlib.backends.qt_compat import QtWidgets  # pyright: ignore[reportAttributeAccessIssue]
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 
@@ -48,7 +51,7 @@ class ImageScrubber:
             ROI definitions for each detector. If None, center 240x240 pixel ROIs are used.
         """
         self.raw = raw
-        self._detector_cache: dict[int, npt.NDArray[np.uint16]] = {}
+        self._detector_cache: dict[int, sparse.COO] = {}
         # Get available detectors from the raw data mapping
         self.detector_numbers = sorted(self.raw._detector_map.keys())
         self.current_detector = self.detector_numbers[0]
@@ -235,7 +238,7 @@ class ImageScrubber:
         # Setup secondary axis
         self.frame_ax.set_xlabel("Frame Number")
 
-    def _get_detector_data(self, detector_num: int) -> npt.NDArray[np.uint16]:
+    def _get_detector_data(self, detector_num: int) -> sparse.COO:
         if detector_num in self._detector_cache:
             return self._detector_cache[detector_num]
         raw_data = self.raw.get_detector(detector_num)
@@ -252,14 +255,16 @@ class ImageScrubber:
         roi_data = detector_data[:, rslc, cslc]
 
         # Sum over spatial dimensions for each frame
-        return roi_data.sum(axis=(1, 2)).todense()
+        # sparse stubs incorrectly type .sum() as returning NDArray rather than COO
+        return roi_data.sum(axis=(1, 2)).todense()  # pyright: ignore[reportAttributeAccessIssue]
 
     def _get_frame_sum_image(
         self, detector_num: int, start_frame: int, end_frame: int
     ) -> npt.NDArray:
         """Get summed image for the specified frame range."""
         detector_data = self._get_detector_data(detector_num)
-        return detector_data[start_frame : end_frame + 1].sum(axis=0).todense()
+        # sparse stubs incorrectly type .sum() as returning NDArray rather than COO
+        return detector_data[start_frame : end_frame + 1].sum(axis=0).todense()  # pyright: ignore[reportAttributeAccessIssue]
 
     def _update_display(self):
         """Update both the image and line plot displays."""
