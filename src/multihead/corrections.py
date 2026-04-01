@@ -37,32 +37,25 @@ def _arm_from_phi_tth_eq20(
     if np.any(tth.angle > np.pi / 2):
         raise ValueError("There is as sign error above 90deg")
 
-    def inner(
-        crystal_roll: TrigAngle,
-        crystal_yaw: TrigAngle,
-        tth: TrigAngle,
-        phi: TrigAngle,
-        theta_i: TrigAngle,
-        delta: float,
+    def _solve(
+        cos_phi_d: NDArray[np.float64],
+        sin_phi_d: NDArray[np.float64],
     ) -> NDArray[np.float64]:
-        phi_d = phi.angle + delta
         X = (
             crystal_yaw.sin * crystal_roll.sin * tth.cos
-            - crystal_yaw.cos * tth.sin * np.cos(phi_d)
+            - crystal_yaw.cos * tth.sin * cos_phi_d
         )
         Y = (
             crystal_roll.cos * tth.cos
-            + crystal_roll.sin * crystal_yaw.sin * tth.sin * np.cos(phi_d)
+            + crystal_roll.sin * crystal_yaw.sin * tth.sin * cos_phi_d
         )
-        Z = crystal_roll.sin * crystal_yaw.cos * tth.sin * np.sin(phi_d) - theta_i.sin
+        Z = crystal_roll.sin * crystal_yaw.cos * tth.sin * sin_phi_d - theta_i.sin
         X_squared = X**2
         Y_squared = Y**2
-        Z_squared = Z**2
-        discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (
-            Z_squared - Y_squared
-        )
+        XY_sum = X_squared + Y_squared
+        discriminant = 4 * Y_squared * (XY_sum - Z**2)
         return np.arccos(
-            (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
+            (2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum)
         )
 
     # when 2ϴ - θi goes negative, we need to take the negative of the arccos
@@ -72,10 +65,10 @@ def _arm_from_phi_tth_eq20(
 
     # paper says 10**-10, but that gives numerical instabilities
     delta = 5e-7
-    fm = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, -delta)
-    f0 = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, 0)
-    fp = inner(crystal_roll, crystal_yaw, tth, phi, theta_i, delta)
-    sign = -np.sign((fp - 2 * f0 + fm) / (delta**2))
+    fm = _solve(np.cos(phi.angle - delta), np.sin(phi.angle - delta))
+    f0 = _solve(phi.cos, phi.sin)  # reuse pre-computed trig values
+    fp = _solve(np.cos(phi.angle + delta), np.sin(phi.angle + delta))
+    sign = -np.sign(fp - 2 * f0 + fm)
     return TrigAngle.from_rad(sign * f0)
 
 
@@ -103,12 +96,10 @@ def _tth_from_phi_arm_eq23(
     Z = -theta_i.sin
     X_squared = X**2
     Y_squared = Y**2
-    Z_squared = Z**2
-    discriminant = 4 * Z_squared * X_squared - 4 * (X_squared + Y_squared) * (
-        Z_squared - Y_squared
-    )
+    XY_sum = X_squared + Y_squared
+    discriminant = 4 * Y_squared * (XY_sum - Z**2)
     tth_rad = np.arccos(
-        (2 * X * Z + np.sqrt(discriminant)) / (2 * (X_squared + Y_squared))
+        (2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum)
     )
 
     return TrigAngle.from_rad(tth_rad)
@@ -202,6 +193,7 @@ def _compute_L3_eq13(
     float
         The computed L3 value
     """
+    det_yaw_tan = det_yaw.sin / det_yaw.cos
     numerator = (
         -config.R * theta_d.cos
         - config.Rd
@@ -209,7 +201,7 @@ def _compute_L3_eq13(
         * (
             arm_tth_d.cos * tth.cos
             + arm_tth_d.sin * tth.sin * phi.cos
-            + np.tan(det_yaw.angle) * tth.sin * phi.sin
+            + det_yaw_tan * tth.sin * phi.sin
         )
     )
     denominator = (
@@ -233,7 +225,7 @@ def _compute_L3_eq13(
                 - arm_tth_i.cos * crystal_roll.cos
             )
         )
-        - np.tan(det_yaw.angle)
+        - det_yaw_tan
         * (tth.sin * phi.sin - 2 * theta_i.sin * crystal_roll.sin * crystal_yaw.sin)
     )
     return numerator / denominator
@@ -326,9 +318,7 @@ def arm_from_z(
 
     # step 6
     arm_tth_i = _arm_from_phi_tth_eq20(crystal_roll, crystal_yaw, tth, phi, theta_i)
-    return np.rad2deg(np.array(arm_tth_i.angle + theta_i.angle)), np.rad2deg(
-        np.array(phi.angle)
-    )
+    return np.rad2deg(arm_tth_i.angle + theta_i.angle), np.rad2deg(phi.angle)
 
 
 def tth_from_z(
@@ -389,7 +379,7 @@ def tth_from_z(
     arm_tth_i = TrigAngle.from_rad(arm_tth.angle - theta_i.angle)
     arm_tth_d = TrigAngle.from_rad(arm_tth.angle - theta_d.angle)
     phi = TrigAngle.from_rad(
-        np.arctan(z / ((Rp + config.Rd) * np.sin(arm_tth_i.angle)))
+        np.arctan(z / ((Rp + config.Rd) * arm_tth_i.sin))
     )
 
     for _ in range(9):
@@ -422,4 +412,4 @@ def tth_from_z(
 
     # step 6 - final computation of tth using converged phi
     tth = _tth_from_phi_arm_eq23(crystal_roll, crystal_yaw, arm_tth_i, theta_i, phi)
-    return np.rad2deg(np.array(tth.angle)), np.rad2deg(np.array(phi.angle))
+    return np.rad2deg(tth.angle), np.rad2deg(phi.angle)
