@@ -9,14 +9,16 @@ import argparse
 import sys
 from pathlib import Path
 
-import sparse
-
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import sparse
 from matplotlib.backend_bases import MouseButton
+
 # matplotlib's qt_compat stubs don't declare the re-exported Qt bindings
-from matplotlib.backends.qt_compat import QtWidgets  # pyright: ignore[reportAttributeAccessIssue]
+from matplotlib.backends.qt_compat import (
+    QtWidgets,  # pyright: ignore[reportAttributeAccessIssue]
+)
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Button, RadioButtons, RectangleSelector, SpanSelector
 

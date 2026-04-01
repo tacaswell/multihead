@@ -54,9 +54,7 @@ def _arm_from_phi_tth_eq20(
         Y_squared = Y**2
         XY_sum = X_squared + Y_squared
         discriminant = 4 * Y_squared * (XY_sum - Z**2)
-        return np.arccos(
-            (2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum)
-        )
+        return np.arccos((2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum))
 
     # when 2ϴ - θi goes negative, we need to take the negative of the arccos
     # as cos(x) == cos(-x) but arccos always returns a positive number
@@ -98,9 +96,7 @@ def _tth_from_phi_arm_eq23(
     Y_squared = Y**2
     XY_sum = X_squared + Y_squared
     discriminant = 4 * Y_squared * (XY_sum - Z**2)
-    tth_rad = np.arccos(
-        (2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum)
-    )
+    tth_rad = np.arccos((2 * X * Z + np.sqrt(discriminant)) / (2 * XY_sum))
 
     return TrigAngle.from_rad(tth_rad)
 
@@ -380,9 +376,7 @@ def tth_from_z(
     # step 1 - estimate phi using arm_tth instead of scatter_tth
     arm_tth_i = TrigAngle.from_rad(arm_tth.angle - theta_i.angle)
     arm_tth_d = TrigAngle.from_rad(arm_tth.angle - theta_d.angle)
-    phi = TrigAngle.from_rad(
-        np.arctan(z_arr / ((Rp + config.Rd) * arm_tth_i.sin))
-    )
+    phi = TrigAngle.from_rad(np.arctan(z_arr / ((Rp + config.Rd) * arm_tth_i.sin)))
 
     for _ in range(9):
         # step 2 - use eq 23 to get 2theta from phi and arm angles

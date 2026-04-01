@@ -280,6 +280,7 @@ class HRDRawV2(HRDRawBase):
 
     def get_arm_tth(self) -> npt.NDArray[np.float64]:
         return self._h5_file[self._tth_path][:]  # pyright: ignore[reportReturnType, reportIndexIssue]
+
     def get_monitor(self) -> npt.NDArray[np.float64]:
         return self._h5_file[self._monitor_path][:]  # pyright: ignore[reportReturnType, reportIndexIssue]
 

@@ -685,7 +685,7 @@ def readMDA(
                             scanFile, unpacker=u, detToDat_offset=detToDat
                         )
                     else:
-                        (s, junk) = readScan(
+                        (s, _junk) = readScan(
                             scanFile, max(0, verbose - 1), out, unpacker=u
                         )
                     # append data arrays

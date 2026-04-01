@@ -249,7 +249,7 @@ def main():
     fig.suptitle(f"{args.filename}")
     data_fig, input_fig = fig.subfigures(2, height_ratios=[7, 1])
 
-    figs, rects, images = make_figure(
+    _figs, rects, images = make_figure(
         data_fig, sums, thresholds, opening_radius, closing_radius
     )
     _keep_alive = make_interaction(
