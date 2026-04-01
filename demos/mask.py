@@ -134,7 +134,7 @@ def make_interaction(
     images: dict[tuple[int, int], AxesImage],
     f: str,
     calib_root: Path,
-    outname: Path | None = None,
+    outname: str | None = None,
 ) -> tuple[Slider, Slider, Slider, Button]:
     state = {"opening_radius": opening_radius, "closing_radius": closing_radius}
 
@@ -184,13 +184,12 @@ def make_interaction(
         outname = Path(f).name
 
     def _on_save(event):  # noqa: ARG001
-        compute_kwargs = dict(
+        res = compute_rois(
+            sums,
             th=int(th_slider.val),
             closing_radius=int(closing_slider.val),
             opening_radius=int(opening_slider.val),
-            source_file=str(Path(f).name),
         )
-        res = compute_rois(sums, **compute_kwargs)
         print(res)
         roi_root = calib_root / "rois"
         roi_root.mkdir(exist_ok=True, parents=True)
