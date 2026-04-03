@@ -22,6 +22,7 @@ class TrigAngle(NamedTuple):
 
 
 def _arm_from_phi_tth_eq20(
+    *,
     crystal_roll: TrigAngle,
     crystal_yaw: TrigAngle,
     tth: TrigAngle,
@@ -71,6 +72,7 @@ def _arm_from_phi_tth_eq20(
 
 
 def _tth_from_phi_arm_eq23(
+    *,
     crystal_roll: TrigAngle,
     crystal_yaw: TrigAngle,
     arm_tth_i: TrigAngle,
@@ -102,6 +104,7 @@ def _tth_from_phi_arm_eq23(
 
 
 def _compute_new_phi_eq15(
+    *,
     zd: NDArray[np.float64],
     L3: NDArray[np.float64],
     theta_i: TrigAngle,
@@ -144,6 +147,7 @@ def _compute_new_phi_eq15(
 
 
 def _compute_L3_eq13(
+    *,
     config: AnalyzerConfig,
     theta_d: TrigAngle,
     theta_i: TrigAngle,
@@ -289,33 +293,51 @@ def arm_from_z(
 
     for _ in range(9):
         # step 2
-        arm_tth_i = _arm_from_phi_tth_eq20(crystal_roll, crystal_yaw, tth, phi, theta_i)
+        arm_tth_i = _arm_from_phi_tth_eq20(
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            tth=tth,
+            phi=phi,
+            theta_i=theta_i,
+        )
         arm_tth_d = TrigAngle.from_rad(arm_tth_i.angle - theta_d.angle + theta_i.angle)
         # step 3
         L3 = _compute_L3_eq13(
-            config,
-            theta_d,
-            theta_i,
-            arm_tth_i,
-            arm_tth_d,
-            tth,
-            phi,
-            det_yaw,
-            crystal_roll,
-            crystal_yaw,
-            Rp,
+            config=config,
+            theta_d=theta_d,
+            theta_i=theta_i,
+            arm_tth_i=arm_tth_i,
+            arm_tth_d=arm_tth_d,
+            tth=tth,
+            phi=phi,
+            det_yaw=det_yaw,
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            Rp=Rp,
         )
 
         # step 4
         new_phi = _compute_new_phi_eq15(
-            z_arr, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+            zd=z_arr,
+            L3=L3,
+            theta_i=theta_i,
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            Rp=Rp,
+            tth=tth,
         )
 
         # step 5
         phi = new_phi
 
     # step 6
-    arm_tth_i = _arm_from_phi_tth_eq20(crystal_roll, crystal_yaw, tth, phi, theta_i)
+    arm_tth_i = _arm_from_phi_tth_eq20(
+        crystal_roll=crystal_roll,
+        crystal_yaw=crystal_yaw,
+        tth=tth,
+        phi=phi,
+        theta_i=theta_i,
+    )
     return np.rad2deg(arm_tth_i.angle + theta_i.angle), np.rad2deg(phi.angle)
 
 
@@ -382,32 +404,50 @@ def tth_from_z(
 
     for _ in range(9):
         # step 2 - use eq 23 to get 2theta from phi and arm angles
-        tth = _tth_from_phi_arm_eq23(crystal_roll, crystal_yaw, arm_tth_i, theta_i, phi)
+        tth = _tth_from_phi_arm_eq23(
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            arm_tth_i=arm_tth_i,
+            theta_i=theta_i,
+            phi=phi,
+        )
 
         # step 3 - use eq 13 to get L3
 
         L3 = _compute_L3_eq13(
-            config,
-            theta_d,
-            theta_i,
-            arm_tth_i,
-            arm_tth_d,
-            tth,
-            phi,
-            det_yaw,
-            crystal_roll,
-            crystal_yaw,
-            Rp,
+            config=config,
+            theta_d=theta_d,
+            theta_i=theta_i,
+            arm_tth_i=arm_tth_i,
+            arm_tth_d=arm_tth_d,
+            tth=tth,
+            phi=phi,
+            det_yaw=det_yaw,
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            Rp=Rp,
         )
 
         # step 4 - use eq 15 to get updated phi
         new_phi = _compute_new_phi_eq15(
-            z_arr, L3, theta_i, crystal_roll, crystal_yaw, Rp, tth
+            zd=z_arr,
+            L3=L3,
+            theta_i=theta_i,
+            crystal_roll=crystal_roll,
+            crystal_yaw=crystal_yaw,
+            Rp=Rp,
+            tth=tth,
         )
 
         # step 5
         phi = new_phi
 
     # step 6 - final computation of tth using converged phi
-    tth = _tth_from_phi_arm_eq23(crystal_roll, crystal_yaw, arm_tth_i, theta_i, phi)
+    tth = _tth_from_phi_arm_eq23(
+        crystal_roll=crystal_roll,
+        crystal_yaw=crystal_yaw,
+        arm_tth_i=arm_tth_i,
+        theta_i=theta_i,
+        phi=phi,
+    )
     return np.rad2deg(tth.angle), np.rad2deg(phi.angle)
