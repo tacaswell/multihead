@@ -6334,8 +6334,8 @@ packages:
   timestamp: 1774449747739
 - pypi: ./
   name: multihead
-  version: 0.1.dev153+g9d3763e54.d20260113
-  sha256: f956ac971f2906809e97436ead0821696614b61789682f76b534b156cf7f3d8a
+  version: 0.1.dev168+gbbbdf6b72.d20260401
+  sha256: a93072b13142e166326d6abc28b80d227efcdbb41f32c48072b0636aacee575c
   requires_dist:
   - h5py
   - numpy>2

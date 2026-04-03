@@ -163,7 +163,7 @@ class AnalyzerConfig:
     crystal_yaw: float = 0
     detector_yaw: float = 0
     detector_roll: float = 0
-    # pixels
+    # mm
     center: float = 0
 
 

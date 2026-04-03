@@ -253,6 +253,7 @@ def arm_from_z(
     """
     z_arr: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
     del z
+    z_arr += config.center
     if config.detector_roll != 0:
         z_arr *= np.cos(np.deg2rad(config.detector_roll))
 
@@ -342,6 +343,7 @@ def tth_from_z(
     tth, phi
     """
     z_arr: NDArray[np.float64] = np.asarray(z, dtype=np.float64)
+    z_arr += config.center
     del z
     if config.detector_roll != 0:
         z_arr *= np.cos(np.deg2rad(config.detector_roll))
