@@ -161,6 +161,7 @@ ignore = [
   "EM101",  # use strings in exceptions if you want
   "T20",    # Removes print statements
   "UP015",  # "redundant" read mode is OK
+  "UP038",  # Suggested upgrade is wrong, rule is removed in later ruff
   "UP031",  # % formats are fine
   "PLC2401", # allow greek to make equations clearer
   "PTH113",
@@ -189,7 +190,7 @@ ignored-modules = ['h5py']
 disable = ["fixme"]
 
 [tool.codespell]
-ignore-words-list = "tha"
+ignore-words-list = "tha,coo,indx"
 
 [tool.pyright]
 reportUnknownMemberType = "none"
