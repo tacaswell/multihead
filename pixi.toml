@@ -8,7 +8,7 @@ version = "0.1.0"
 [tasks]
 
 [environments]
-pre-commit = { features = ["pre-commit"], solve-group = "pre-commit", no-default-feature = true }
+prek = { features = ["prek"], solve-group = "prek", no-default-feature = true }
 
 [dependencies]
 matplotlib = ">=3.10.1,<4"
@@ -27,11 +27,11 @@ sparse = ">=0.17.0,<0.18"
 pyarrow = ">=22.0.0,<23"
 git = ">=2.52.0,<3"
 
-[feature.pre-commit.dependencies]
-pre-commit = ">=4.0.0,<5"
+[feature.prek.dependencies]
+prek = ">=0.3.0"
 
-[feature.pre-commit.tasks]
-pre-commit = "pre-commit run --all-files"
+[feature.prek.tasks]
+prek = "prek run --all-files"
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }
