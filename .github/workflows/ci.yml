@@ -46,7 +46,9 @@ jobs:
       - uses: prefix-dev/setup-pixi@a0af7a228712d6121d37aba47adf55c1332c9c2e # v0.9.4
 
       - name: Test package
-        run: pixi run pytest -ra --cov --cov-report=xml --cov-report=term --durations=20
+        run:
+          pixi run pytest -ra --cov --cov-report=xml --cov-report=term
+          --durations=20
 
       - name: Upload coverage report
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
