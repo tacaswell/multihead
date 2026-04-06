@@ -20,7 +20,7 @@ env:
   FORCE_COLOR: 3
 
 jobs:
-  pre-commit:
+  prek:
     name: Format
     runs-on: ubuntu-latest
     steps:
@@ -30,13 +30,12 @@ jobs:
       - uses: j178/prek-action@53276d8b0d10f8b6672aa85b4588c6921d0370cc # v2.0.1
 
   checks:
-    name: Check Python ${{ matrix.python-version }} on ${{ matrix.runs-on }}
+    name: Check on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
-    needs: [pre-commit]
+    needs: [prek]
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
         runs-on: [ubuntu-latest, windows-latest, macos-14]
 
     steps:
@@ -44,18 +43,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-        with:
-          python-version: ${{ matrix.python-version }}
-          allow-prereleases: true
-
-      - name: Install package
-        run: python -m pip install .[test]
+      - uses: prefix-dev/setup-pixi@a0af7a228712d6121d37aba47adf55c1332c9c2e # v0.9.4
 
       - name: Test package
-        run: >-
-          python -m pytest -ra --cov --cov-report=xml --cov-report=term
-          --durations=20
+        run: pixi run pytest -ra --cov --cov-report=xml --cov-report=term --durations=20
 
       - name: Upload coverage report
         uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
