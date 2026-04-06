@@ -5,11 +5,10 @@ name = "Lab6_testdata_share"
 platforms = ["linux-64", "win-64", "osx-arm64"]
 version = "0.1.0"
 
-[tasks]
-test = "pytest"
-
 [environments]
 prek = { features = ["prek"], solve-group = "prek", no-default-feature = true }
+test = { features = ["test"], solve-group = "default" }
+default = { solve-group = "default" }
 
 [dependencies]
 matplotlib = ">=3.10.1,<4"
@@ -33,6 +32,13 @@ prek = ">=0.3.0"
 
 [feature.prek.tasks]
 prek = "prek run --all-files"
+
+[feature.test.dependencies]
+pytest = "*"
+pytest-cov = "*"
+
+[feature.test.tasks]
+test = "pytest"
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }
