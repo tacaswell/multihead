@@ -2,36 +2,43 @@
 authors = ["Thomas A Caswell <tcaswell@bnl.gov>"]
 channels = ["conda-forge"]
 name = "Lab6_testdata_share"
-platforms = ["linux-64", "win-64", "osx-64"]
+platforms = ["linux-64", "win-64", "osx-arm64"]
 version = "0.1.0"
 
-[tasks]
-
 [environments]
-pre-commit = { features = ["pre-commit"], solve-group = "pre-commit", no-default-feature = true }
+prek = { features = ["prek"], solve-group = "prek", no-default-feature = true }
+test = { features = ["test"], solve-group = "default" }
+default = { solve-group = "default" }
 
 [dependencies]
-matplotlib = ">=3.10.1,<4"
-ipython = ">=9.2.0,<10"
-numpy = ">=2.2.5,<3"
-h5py = ">=3.13.0,<4"
+matplotlib = ">=3.10.8,<4"
+ipython = ">=9.12.0,<10"
+numpy = ">=2.4.3,<3"
+h5py = ">=3.16.0,<4"
 hdf5-external-filter-plugins-lz4 = ">=0.1.0,<0.2"
 hdf5-external-filter-plugins-bitshuffle = ">=0.1.0,<0.2"
-scikit-image = ">=0.25.2,<0.26"
-tqdm = ">=4.67.1,<5"
-python = ">=3.13"
-pyyaml = ">=6.0.2,<7"
-pytest = ">=8.3.5,<9"
+scikit-image = ">=0.26.0,<0.27"
+tqdm = ">=4.67.3,<5"
+python = ">=3.14.3,<3.15"
+pyyaml = ">=6.0.3,<7"
+pytest = ">=9.0.2,<10"
 hdf5plugin = ">=6.0.0,<7"
-sparse = ">=0.17.0,<0.18"
-pyarrow = ">=22.0.0,<23"
-git = ">=2.52.0,<3"
+sparse = ">=0.18.0,<0.19"
+pyarrow = ">=23.0.1,<24"
+git = ">=2.53.0,<3"
 
-[feature.pre-commit.dependencies]
-pre-commit = ">=4.0.0,<5"
+[feature.prek.dependencies]
+prek = ">=0.3.8,<0.4"
 
-[feature.pre-commit.tasks]
-pre-commit = "pre-commit run --all-files"
+[feature.prek.tasks]
+prek = "prek run --all-files"
+
+[feature.test.dependencies]
+pytest = ">=9.0.2,<10"
+pytest-cov = ">=7.1.0,<8"
+
+[feature.test.tasks]
+test = "pytest"
 
 [pypi-dependencies]
 multihead = { path = ".", editable = true }

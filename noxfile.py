@@ -18,21 +18,10 @@ def lint(session: nox.Session) -> None:
     """
     Run the linter.
     """
-    session.install("pre-commit")
+    session.install("prek")
     session.run(
-        "pre-commit", "run", "--all-files", "--show-diff-on-failure", *session.posargs
+        "prek", "run", "--all-files", "--show-diff-on-failure", *session.posargs
     )
-
-
-@nox.session
-def pylint(session: nox.Session) -> None:
-    """
-    Run PyLint.
-    """
-    # This needs to be installed into the package environment, and is slower
-    # than a pre-commit check
-    session.install(".", "pylint>=3.2")
-    session.run("pylint", "multihead", *session.posargs)
 
 
 @nox.session
