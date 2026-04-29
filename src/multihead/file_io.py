@@ -405,8 +405,14 @@ class HRDRawV2(HRDRawBase):
 
     def __init__(self, path: Path | str, **kwargs):
         # TODO make opening this lazy?
-        self._h5_file = h5py.File(path)
+        self._path = Path(path)
+        self._h5_file = h5py.File(self._path)
         self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))  # pyright: ignore[reportArgumentType]
+
+        pre_path, post_path = find_pre_post(self._path)
+        self._pre = parse_autosave(pre_path) if pre_path is not None else None
+        self._post = parse_autosave(post_path) if post_path is not None else None
+
         super().__init__(**kwargs)
 
     def get_arm_tth(self) -> npt.NDArray[np.float64]:
@@ -425,10 +431,10 @@ class HRDRawV2(HRDRawBase):
         raise NotImplementedError("not implemented for v2")
 
     def get_pre(self) -> dict[str, Any] | None:
-        raise NotImplementedError("not implemented for v2")
+        return None if self._pre is None else dict(self._pre)
 
     def get_post(self) -> dict[str, Any] | None:
-        raise NotImplementedError("not implemented for v2")
+        return None if self._post is None else dict(self._post)
 
     def get_staff_log(self) -> list[dict[str, Any]] | None:
         raise NotImplementedError("not implemented for v2")

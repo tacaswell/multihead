@@ -85,18 +85,20 @@ def parse_autosave(path: Path) -> dict[str, str | float]:
     return out
 
 
-def find_pre_post(mda_path: Path) -> tuple[Path | None, Path | None]:
+def find_pre_post(data_path: Path) -> tuple[Path | None, Path | None]:
     """
-    Locate the ``.pre`` / ``.post`` siblings for an ``.mda`` file.
+    Locate the ``.pre`` / ``.post`` siblings for a data file.
 
     The autosave files use a double-underscore stem
-    (e.g. ``11bmb__2386.pre``) while the ``.mda`` file uses a single
-    underscore (``11bmb_2386.mda``).
+    (e.g. ``11bmb__2386.pre``) while data files use a single
+    underscore (``11bmb_2386.mda``, ``11bmb_2386_mda_defROI.h5``, etc.).
+    The run number is extracted via :func:`parse_run_number` and the
+    beamline prefix is taken as everything before ``_<run>``.
 
     Parameters
     ----------
-    mda_path : Path
-        Path to the ``.mda`` file.
+    data_path : Path
+        Path to the data file (e.g. ``.mda`` or ``.h5``).
 
     Returns
     -------
@@ -105,14 +107,15 @@ def find_pre_post(mda_path: Path) -> tuple[Path | None, Path | None]:
     post : Path or None
         Path to the ``.post`` file, or ``None`` if it does not exist.
     """
-    stem = mda_path.stem
-    m = re.match(r"^(.*?)_(\d+)$", stem)
+    stem = data_path.stem
+    # Match the first _<digits> group (the run number).
+    m = re.match(r"^(.*?)_(\d+)", stem)
     if m is None:
         return None, None
     base, run = m.group(1), m.group(2)
     auto_stem = f"{base}__{run}"
-    pre = mda_path.with_name(f"{auto_stem}.pre")
-    post = mda_path.with_name(f"{auto_stem}.post")
+    pre = data_path.with_name(f"{auto_stem}.pre")
+    post = data_path.with_name(f"{auto_stem}.post")
     return (pre if pre.exists() else None, post if post.exists() else None)
 
 
