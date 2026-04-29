@@ -10,8 +10,9 @@ import json
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import sparse
@@ -19,6 +20,35 @@ import tqdm
 
 from multihead.cli import parse_detector_map
 from multihead.file_io import open_data
+
+
+def _to_jsonable(obj: Any) -> Any:
+    """
+    Recursively convert numpy types to JSON-serializable Python types.
+
+    Parameters
+    ----------
+    obj : Any
+        Object to convert.  Dicts, lists, tuples, and ndarrays are
+        traversed recursively.
+
+    Returns
+    -------
+    Any
+        A JSON-serializable equivalent.
+    """
+    if isinstance(obj, dict):
+        return {str(k): _to_jsonable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_jsonable(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.generic):
+        return obj.item()
+    if isinstance(obj, (str, int, float, bool)) or obj is None:
+        return obj
+    # Fallback: stringify
+    return str(obj)
 
 
 class OnExistAction(Enum):
@@ -72,9 +102,12 @@ def convert_file(
     # Generate output file names with consistent naming
     images_path = file_output_dir / "images.parquet"
     scalars_path = file_output_dir / "scalars.parquet"
+    metadata_path = file_output_dir / "metadata.json"
 
     # Check if files exist and handle according to on_exist policy
-    files_exist = images_path.exists() or scalars_path.exists()
+    files_exist = (
+        images_path.exists() or scalars_path.exists() or metadata_path.exists()
+    )
 
     if files_exist:
         if on_exist == OnExistAction.FAIL:
@@ -107,17 +140,55 @@ def convert_file(
         images_table, images_path, compression="snappy", write_statistics=False
     )
 
-    # Extract and write scalars (tth and monitor)
+    # Extract and write scalars (tth and monitor, plus MDA detector channels for v1)
     tth = raw.get_arm_tth()
     monitor = raw.get_monitor()
     nominal_bin = raw.get_nominal_bin()
 
+    scalar_arrays: list[pa.Array] = [pa.array(tth), pa.array(monitor)]
+    scalar_names: list[str] = ["tth", "monitor"]
+    seen = {"tth", "monitor"}
+
+    if version == 1:
+        for desc, arr in raw.get_detector_scalars().items():
+            arr = np.asarray(arr)
+            if desc in seen:
+                tqdm.tqdm.write(
+                    f"  ⚠ Skipping detector scalar '{desc}' (column already present)"
+                )
+                continue
+            if len(arr) != len(tth):
+                raise ValueError(
+                    f"Detector scalar '{desc}' has length {len(arr)} which does "
+                    f"not match tth length {len(tth)} for {input_path.name}"
+                )
+            scalar_arrays.append(pa.array(arr))
+            scalar_names.append(desc)
+            seen.add(desc)
+
     scalars_table = pa.Table.from_arrays(
-        [pa.array(tth), pa.array(monitor)],
-        names=("tth", "monitor"),
+        scalar_arrays,
+        names=scalar_names,
         metadata={"nominal_bin": str(nominal_bin)},
     )
     pq.write_table(scalars_table, scalars_path, compression="snappy")
+
+    # Write metadata.json sidecar (v1 only).
+    if version == 1:
+        meta = {
+            "source": {
+                "version": 1,
+                "input_file": str(input_path),
+                "stem": stem,
+            },
+            "scan_md": _to_jsonable(raw.get_scan_md()),
+            "scan_config": _to_jsonable(raw.get_scan_config()),
+            "pre": _to_jsonable(raw.get_pre()),
+            "post": _to_jsonable(raw.get_post()),
+            "staff_log": _to_jsonable(raw.get_staff_log()),
+        }
+        with metadata_path.open("w") as fout:
+            json.dump(meta, fout, indent=2, default=str)
 
     return images_path, scalars_path
 

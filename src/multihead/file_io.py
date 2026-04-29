@@ -22,6 +22,13 @@ import sparse
 import tqdm
 
 from multihead import mda
+from multihead.aux_metadata import (
+    find_pre_post,
+    find_staff_logs,
+    index_staff_logs,
+    parse_autosave,
+    parse_run_number,
+)
 
 
 @dataclass
@@ -43,6 +50,9 @@ class MDA:
     scan_config: dict[str, ConfigEntry] = field(repr=False)
     detectors: dict[str, npt.NDArray[Any]] = field(repr=False)
     scan: mda.scanDim = field(repr=False)
+    pre: dict[str, Any] | None = field(default=None, repr=False)
+    post: dict[str, Any] | None = field(default=None, repr=False)
+    staff_log: list[dict[str, Any]] | None = field(default=None, repr=False)
 
 
 class HRDRawProtocol(Protocol):
@@ -118,6 +128,77 @@ class HRDRawProtocol(Protocol):
         """
         ...
 
+    def get_scan_md(self) -> dict[str, Any]:
+        """
+        Get the scan metadata dictionary.
+
+        Returns
+        -------
+        dict of {str : Any}
+            Scan metadata.  May be empty if not available.
+        """
+        ...
+
+    def get_scan_config(self) -> dict[str, dict[str, Any]]:
+        """
+        Get the scan configuration as a flat JSON-friendly dict.
+
+        Each key maps to a dict with ``pv``, ``unit``, ``value``,
+        ``epics_type``, and ``count`` entries.
+
+        Returns
+        -------
+        dict of {str : dict}
+            Scan configuration entries.  May be empty if not available.
+        """
+        ...
+
+    def get_pre(self) -> dict[str, Any] | None:
+        """
+        Get the pre-scan EPICS autosave PV snapshot.
+
+        Returns
+        -------
+        dict of {str : Any} or None
+            PV name to value mapping, or ``None`` if unavailable.
+        """
+        ...
+
+    def get_post(self) -> dict[str, Any] | None:
+        """
+        Get the post-scan EPICS autosave PV snapshot.
+
+        Returns
+        -------
+        dict of {str : Any} or None
+            PV name to value mapping, or ``None`` if unavailable.
+        """
+        ...
+
+    def get_staff_log(self) -> list[dict[str, Any]] | None:
+        """
+        Get staff-log run blocks referencing this run.
+
+        Returns
+        -------
+        list of dict or None
+            List of :class:`~multihead.aux_metadata.RunBlock` dicts, or
+            ``None`` if no staff-log data is available.
+        """
+        ...
+
+    def get_detector_scalars(self) -> dict[str, npt.NDArray[Any]]:
+        """
+        Get per-frame scalar channels from MDA detectors.
+
+        Returns
+        -------
+        dict of {str : NDArray}
+            Mapping of detector description to 1-D array of per-frame
+            values.
+        """
+        ...
+
 
 class HRDRawBase:
     _detector_map: dict[int, tuple[int, int]]
@@ -188,11 +269,32 @@ class HRDRawV1(HRDRawBase):
             for k, v in md.items()
             if k not in scan_md and k != "ourKeys"
         }
+        # Auxiliary metadata: .pre/.post + StaffLog snippets.
+        pre_path, post_path = find_pre_post(mda_path)
+        pre = parse_autosave(pre_path) if pre_path is not None else None
+        post = parse_autosave(post_path) if post_path is not None else None
+
+        staff_log: list[dict[str, Any]] | None = None
+        run_no = parse_run_number(mda_path)
+        if run_no is not None:
+            log_paths = find_staff_logs(mda_path.parent)
+            if not log_paths:
+                # Allow logs to live one level up (e.g. v1/ subdir off raw/).
+                log_paths = find_staff_logs(mda_path.parent.parent)
+            if log_paths:
+                index = index_staff_logs(log_paths)
+                hits = index.get(run_no)
+                if hits is not None:
+                    staff_log = list(hits)
+
         self._mda = MDA(
             scan_md,
             scan_config,
             {d.desc: d.data for d in scan.d if np.sum(d.data) != 0},
             scan,
+            pre=pre,
+            post=post,
+            staff_log=staff_log,
         )
         super().__init__(**kwargs)
 
@@ -223,6 +325,35 @@ class HRDRawV1(HRDRawBase):
         (step_size,) = sc["encoder resolution"].value
 
         return steps_per_bin * step_size
+
+    def get_scan_md(self) -> dict[str, Any]:
+        return dict(self._mda.scan_md)
+
+    def get_scan_config(self) -> dict[str, dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for k, ce in self._mda.scan_config.items():
+            out[k] = {
+                "pv": ce.pv,
+                "unit": ce.unit,
+                "value": ce.value,
+                "epics_type": ce.epics_type,
+                "count": ce.count,
+            }
+        return out
+
+    def get_pre(self) -> dict[str, Any] | None:
+        return None if self._mda.pre is None else dict(self._mda.pre)
+
+    def get_post(self) -> dict[str, Any] | None:
+        return None if self._mda.post is None else dict(self._mda.post)
+
+    def get_staff_log(self) -> list[dict[str, Any]] | None:
+        if self._mda.staff_log is None:
+            return None
+        return list(self._mda.staff_log)
+
+    def get_detector_scalars(self) -> dict[str, npt.NDArray[Any]]:
+        return dict(self._mda.detectors)
 
 
 class HRDRawV2(HRDRawBase):
@@ -286,6 +417,24 @@ class HRDRawV2(HRDRawBase):
 
     def get_nominal_bin(self) -> float:
         return self._md["Nominal 2theta step"].value
+
+    def get_scan_md(self) -> dict[str, Any]:
+        raise NotImplementedError("not implemented for v2")
+
+    def get_scan_config(self) -> dict[str, dict[str, Any]]:
+        raise NotImplementedError("not implemented for v2")
+
+    def get_pre(self) -> dict[str, Any] | None:
+        raise NotImplementedError("not implemented for v2")
+
+    def get_post(self) -> dict[str, Any] | None:
+        raise NotImplementedError("not implemented for v2")
+
+    def get_staff_log(self) -> list[dict[str, Any]] | None:
+        raise NotImplementedError("not implemented for v2")
+
+    def get_detector_scalars(self) -> dict[str, npt.NDArray[Any]]:
+        raise NotImplementedError("not implemented for v2")
 
 
 def _find_parquet_files(data_dir: Path, base_name: str) -> list[Path]:
@@ -367,6 +516,8 @@ class HRDRawV3:
     _monitor: npt.NDArray[np.float64]
     _nominal_bin: float
     _detector_map: dict[int, tuple[int, int]]
+    _metadata: dict[str, Any] | None
+    _extra_scalars: dict[str, npt.NDArray[Any]]
 
     def __init__(
         self,
@@ -431,6 +582,13 @@ class HRDRawV3:
         self._tth = scalars_table["tth"].to_numpy()
         self._monitor = scalars_table["monitor"].to_numpy()
 
+        # Any other columns are detector-scalar channels written by v1 conversion.
+        self._extra_scalars = {}
+        for name in scalars_table.column_names:
+            if name in ("tth", "monitor"):
+                continue
+            self._extra_scalars[name] = scalars_table[name].to_numpy()
+
         # Extract nominal_bin from scalars metadata
         if b"nominal_bin" in scalars_table.schema.metadata:
             self._nominal_bin = float(scalars_table.schema.metadata[b"nominal_bin"])
@@ -438,6 +596,14 @@ class HRDRawV3:
             raise ValueError(
                 f"Missing required metadata 'nominal_bin' in {scalars_paths[0]}"
             )
+
+        # Optional metadata sidecar; pre-existing v3 dirs won't have it.
+        meta_path = data_dir / "metadata.json"
+        if meta_path.exists():
+            with meta_path.open("r") as fin:
+                self._metadata = json.load(fin)
+        else:
+            self._metadata = None
 
     @classmethod
     def from_data_path(cls, data_path: Path, **kwargs) -> Self:
@@ -512,6 +678,37 @@ class HRDRawV3:
     def get_nominal_bin(self) -> float:
         """Get the nominal bin size."""
         return self._nominal_bin
+
+    def get_scan_md(self) -> dict[str, Any]:
+        if self._metadata is None:
+            return {}
+        return dict(self._metadata.get("scan_md", {}))
+
+    def get_scan_config(self) -> dict[str, dict[str, Any]]:
+        if self._metadata is None:
+            return {}
+        return dict(self._metadata.get("scan_config", {}))
+
+    def get_pre(self) -> dict[str, Any] | None:
+        if self._metadata is None:
+            return None
+        v = self._metadata.get("pre")
+        return None if v is None else dict(v)
+
+    def get_post(self) -> dict[str, Any] | None:
+        if self._metadata is None:
+            return None
+        v = self._metadata.get("post")
+        return None if v is None else dict(v)
+
+    def get_staff_log(self) -> list[dict[str, Any]] | None:
+        if self._metadata is None:
+            return None
+        v = self._metadata.get("staff_log")
+        return None if v is None else list(v)
+
+    def get_detector_scalars(self) -> dict[str, npt.NDArray[Any]]:
+        return dict(self._extra_scalars)
 
 
 def rechunk(file_in: str | Path, file_out: str | Path, *, n_frames: int = 1000) -> None:
