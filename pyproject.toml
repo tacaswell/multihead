@@ -26,7 +26,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 dynamic = ["version"]
-dependencies = ['scikit-image', 'numpy>2', "h5py"]
+dependencies = ['scikit-image', 'numpy>2', "h5py", "pyarrow", "sparse", "tqdm"]
 
 [project.optional-dependencies]
 test = [
@@ -44,6 +44,9 @@ docs = [
   "sphinx_autodoc_typehints",
   "furo>=2023.08.17",
 ]
+
+[project.scripts]
+multihead-to-sparse = "multihead.to_sparse:main"
 
 [project.urls]
 Homepage = "https://github.com/tacaswell/multihead"
