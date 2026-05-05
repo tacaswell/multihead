@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pyarrow as pa
 import pytest
 
 from multihead import aux_metadata
@@ -117,3 +118,41 @@ def test_parse_run_number():
 
 def test_staff_log_for_run_no_logs(tmp_path: Path):
     assert aux_metadata.staff_log_for_run(123, tmp_path) is None
+
+
+def test_parse_autosave_timestamp(tmp_path: Path):
+    p = tmp_path / "11bmb__2386.pre"
+    p.write_text(PRE_SAMPLE)
+    ts = aux_metadata.parse_autosave_timestamp(p)
+    assert ts == "2025-10-22T19:20:55"
+
+
+def test_baseline_table(tmp_path: Path):
+    pre = {"pv_a": 1.0, "pv_b": "hello"}
+    post = {"pv_a": 2.0, "pv_b": "world"}
+    tbl = aux_metadata.baseline_table(
+        pre, post, pre_timestamp="2025-01-01T00:00:00", post_timestamp="2025-01-01T01:00:00"
+    )
+    assert tbl is not None
+    assert tbl.num_rows == 2
+    # Columns: timestamp, pv_a, pv_b (sorted alpha after timestamp).
+    assert tbl.column_names == ["timestamp", "pv_a", "pv_b"]
+    assert tbl.column("pv_a").to_pylist() == [1.0, 2.0]
+    assert tbl.column("pv_b").to_pylist() == ["hello", "world"]
+    assert tbl.column("timestamp").to_pylist() == [
+        "2025-01-01T00:00:00",
+        "2025-01-01T01:00:00",
+    ]
+
+
+def test_baseline_table_none():
+    assert aux_metadata.baseline_table(None, None) is None
+
+
+def test_baseline_table_partial():
+    post = {"pv_x": 3.14}
+    tbl = aux_metadata.baseline_table(None, post)
+    assert tbl is not None
+    assert tbl.num_rows == 2
+    assert tbl.column("pv_x").to_pylist()[0] is None
+    assert tbl.column("pv_x").to_pylist()[1] == 3.14

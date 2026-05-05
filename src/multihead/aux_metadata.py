@@ -18,6 +18,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, TypedDict
 
+import pyarrow as pa
+
 
 class RunBlock(TypedDict):
     """
@@ -117,6 +119,113 @@ def find_pre_post(data_path: Path) -> tuple[Path | None, Path | None]:
     pre = data_path.with_name(f"{auto_stem}.pre")
     post = data_path.with_name(f"{auto_stem}.post")
     return (pre if pre.exists() else None, post if post.exists() else None)
+
+
+_AUTOSAVE_HEADER_RE = re.compile(
+    r"^#\s*autosave\s+\S+\s+.*?(\d{6})-(\d{6})\s*$"
+)
+
+
+def parse_autosave_timestamp(path: Path) -> str | None:
+    """
+    Extract the timestamp from the autosave header line.
+
+    The header format is ``# autosave R5.3 ... YYMMDD-HHMMSS``.
+
+    Parameters
+    ----------
+    path : Path
+        Path to the autosave file.
+
+    Returns
+    -------
+    str or None
+        ISO-formatted timestamp (``YYYY-MM-DDTHH:MM:SS``), or ``None``
+        if the header could not be parsed.
+    """
+    with path.open("r") as fin:
+        for line in fin:
+            m = _AUTOSAVE_HEADER_RE.match(line.rstrip("\n"))
+            if m is not None:
+                date_s, time_s = m.group(1), m.group(2)
+                # YYMMDD -> 20YY-MM-DD
+                yy, mm, dd = date_s[:2], date_s[2:4], date_s[4:6]
+                hh, mi, ss = time_s[:2], time_s[2:4], time_s[4:6]
+                return f"20{yy}-{mm}-{dd}T{hh}:{mi}:{ss}"
+            # Only first line should be the header; stop early.
+            break
+    return None
+
+
+def baseline_table(
+    pre: dict[str, str | float] | None,
+    post: dict[str, str | float] | None,
+    *,
+    pre_timestamp: str | None = None,
+    post_timestamp: str | None = None,
+) -> pa.Table | None:
+    """
+    Build a 2-row pyarrow Table from pre/post autosave snapshots.
+
+    Row 0 corresponds to the pre-scan snapshot and row 1 to the
+    post-scan snapshot.  Columns are sorted alphabetically by PV name.
+    A ``timestamp`` column (string) is prepended if timestamps are
+    available.
+
+    Parameters
+    ----------
+    pre : dict of {str : str or float} or None
+        Pre-scan PV snapshot (from :func:`parse_autosave`).
+    post : dict of {str : str or float} or None
+        Post-scan PV snapshot (from :func:`parse_autosave`).
+    pre_timestamp : str or None
+        Timestamp extracted from the pre autosave header.
+    post_timestamp : str or None
+        Timestamp extracted from the post autosave header.
+
+    Returns
+    -------
+    pa.Table or None
+        A 2-row Table, or ``None`` if both *pre* and *post* are ``None``.
+    """
+    if pre is None and post is None:
+        return None
+
+    pre = pre or {}
+    post = post or {}
+
+    # Union of keys, sorted for determinism.
+    all_keys = sorted(set(pre) | set(post))
+
+    columns: list[pa.Array] = []
+    names: list[str] = []
+
+    # Prepend timestamp column if we have any.
+    if pre_timestamp is not None or post_timestamp is not None:
+        names.append("timestamp")
+        columns.append(pa.array([pre_timestamp, post_timestamp], type=pa.string()))
+
+    for key in all_keys:
+        pre_val = pre.get(key)
+        post_val = post.get(key)
+
+        # Determine type from whichever value is present.
+        sample = pre_val if pre_val is not None else post_val
+        if isinstance(sample, float):
+            arr = pa.array([pre_val, post_val], type=pa.float64())
+        else:
+            # String or None — coerce both to str or null.
+            arr = pa.array(
+                [
+                    str(pre_val) if pre_val is not None else None,
+                    str(post_val) if post_val is not None else None,
+                ],
+                type=pa.string(),
+            )
+        columns.append(arr)
+        names.append(key)
+
+    return pa.table(columns, names=names)
 
 
 def parse_run_number(path: Path) -> int | None:

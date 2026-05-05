@@ -23,10 +23,12 @@ import tqdm
 
 from multihead import mda
 from multihead.aux_metadata import (
+    baseline_table,
     find_pre_post,
     find_staff_logs,
     index_staff_logs,
     parse_autosave,
+    parse_autosave_timestamp,
     parse_run_number,
 )
 
@@ -50,8 +52,7 @@ class MDA:
     scan_config: dict[str, ConfigEntry] = field(repr=False)
     detectors: dict[str, npt.NDArray[Any]] = field(repr=False)
     scan: mda.scanDim = field(repr=False)
-    pre: dict[str, Any] | None = field(default=None, repr=False)
-    post: dict[str, Any] | None = field(default=None, repr=False)
+    baseline: pa.Table | None = field(default=None, repr=False)
     staff_log: list[dict[str, Any]] | None = field(default=None, repr=False)
 
 
@@ -153,25 +154,18 @@ class HRDRawProtocol(Protocol):
         """
         ...
 
-    def get_pre(self) -> dict[str, Any] | None:
+    def get_baseline(self) -> pa.Table | None:
         """
-        Get the pre-scan EPICS autosave PV snapshot.
+        Get pre/post scan baseline PV readings as a 2-row Table.
+
+        Row 0 is the pre-scan snapshot, row 1 is the post-scan snapshot.
+        Columns are sorted alphabetically by PV name.  A ``timestamp``
+        column is included when available.
 
         Returns
         -------
-        dict of {str : Any} or None
-            PV name to value mapping, or ``None`` if unavailable.
-        """
-        ...
-
-    def get_post(self) -> dict[str, Any] | None:
-        """
-        Get the post-scan EPICS autosave PV snapshot.
-
-        Returns
-        -------
-        dict of {str : Any} or None
-            PV name to value mapping, or ``None`` if unavailable.
+        pa.Table or None
+            A 2-row table, or ``None`` if no baseline data is available.
         """
         ...
 
@@ -273,6 +267,9 @@ class HRDRawV1(HRDRawBase):
         pre_path, post_path = find_pre_post(mda_path)
         pre = parse_autosave(pre_path) if pre_path is not None else None
         post = parse_autosave(post_path) if post_path is not None else None
+        pre_ts = parse_autosave_timestamp(pre_path) if pre_path is not None else None
+        post_ts = parse_autosave_timestamp(post_path) if post_path is not None else None
+        bl = baseline_table(pre, post, pre_timestamp=pre_ts, post_timestamp=post_ts)
 
         staff_log: list[dict[str, Any]] | None = None
         run_no = parse_run_number(mda_path)
@@ -292,8 +289,7 @@ class HRDRawV1(HRDRawBase):
             scan_config,
             {d.desc: d.data for d in scan.d if np.sum(d.data) != 0},
             scan,
-            pre=pre,
-            post=post,
+            baseline=bl,
             staff_log=staff_log,
         )
         super().__init__(**kwargs)
@@ -341,11 +337,8 @@ class HRDRawV1(HRDRawBase):
             }
         return out
 
-    def get_pre(self) -> dict[str, Any] | None:
-        return None if self._mda.pre is None else dict(self._mda.pre)
-
-    def get_post(self) -> dict[str, Any] | None:
-        return None if self._mda.post is None else dict(self._mda.post)
+    def get_baseline(self) -> pa.Table | None:
+        return self._mda.baseline
 
     def get_staff_log(self) -> list[dict[str, Any]] | None:
         if self._mda.staff_log is None:
@@ -410,8 +403,13 @@ class HRDRawV2(HRDRawBase):
         self._md = self.extract_md(list(self._h5_file["entry"].attrs["Comments"]))  # pyright: ignore[reportArgumentType]
 
         pre_path, post_path = find_pre_post(self._path)
-        self._pre = parse_autosave(pre_path) if pre_path is not None else None
-        self._post = parse_autosave(post_path) if post_path is not None else None
+        pre = parse_autosave(pre_path) if pre_path is not None else None
+        post = parse_autosave(post_path) if post_path is not None else None
+        pre_ts = parse_autosave_timestamp(pre_path) if pre_path is not None else None
+        post_ts = parse_autosave_timestamp(post_path) if post_path is not None else None
+        self._baseline = baseline_table(
+            pre, post, pre_timestamp=pre_ts, post_timestamp=post_ts
+        )
 
         super().__init__(**kwargs)
 
@@ -430,11 +428,8 @@ class HRDRawV2(HRDRawBase):
     def get_scan_config(self) -> dict[str, dict[str, Any]]:
         raise NotImplementedError("not implemented for v2")
 
-    def get_pre(self) -> dict[str, Any] | None:
-        return None if self._pre is None else dict(self._pre)
-
-    def get_post(self) -> dict[str, Any] | None:
-        return None if self._post is None else dict(self._post)
+    def get_baseline(self) -> pa.Table | None:
+        return self._baseline
 
     def get_staff_log(self) -> list[dict[str, Any]] | None:
         raise NotImplementedError("not implemented for v2")
@@ -524,6 +519,7 @@ class HRDRawV3:
     _detector_map: dict[int, tuple[int, int]]
     _metadata: dict[str, Any] | None
     _extra_scalars: dict[str, npt.NDArray[Any]]
+    _baseline: pa.Table | None
 
     def __init__(
         self,
@@ -611,6 +607,13 @@ class HRDRawV3:
         else:
             self._metadata = None
 
+        # Optional baseline parquet sidecar.
+        baseline_path = data_dir / "baseline.parquet"
+        if baseline_path.exists():
+            self._baseline: pa.Table | None = pq.read_table(baseline_path)
+        else:
+            self._baseline = None
+
     @classmethod
     def from_data_path(cls, data_path: Path, **kwargs) -> Self:
         """
@@ -695,17 +698,8 @@ class HRDRawV3:
             return {}
         return dict(self._metadata.get("scan_config", {}))
 
-    def get_pre(self) -> dict[str, Any] | None:
-        if self._metadata is None:
-            return None
-        v = self._metadata.get("pre")
-        return None if v is None else dict(v)
-
-    def get_post(self) -> dict[str, Any] | None:
-        if self._metadata is None:
-            return None
-        v = self._metadata.get("post")
-        return None if v is None else dict(v)
+    def get_baseline(self) -> pa.Table | None:
+        return self._baseline
 
     def get_staff_log(self) -> list[dict[str, Any]] | None:
         if self._metadata is None:
