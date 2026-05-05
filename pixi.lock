@@ -6848,12 +6848,15 @@ packages:
   timestamp: 1774449747739
 - pypi: ./
   name: multihead
-  version: 0.1.dev184+g5e5619ec3
-  sha256: 0d58c673917ca80d6d493e7c9d7dbf3213ebb93562c7175daf68b300959c4066
+  version: 0.1.dev198+g62b1ec7b6.d20260505
+  sha256: 0dcdfa630a5837de52fdd459deccc9396a075bef66bb2ad844ad617729b1aec6
   requires_dist:
   - h5py
   - numpy>2
+  - pyarrow
   - scikit-image
+  - sparse
+  - tqdm
   - pytest-cov>=3 ; extra == 'dev'
   - pytest>=6 ; extra == 'dev'
   - furo>=2023.8.17 ; extra == 'docs'
