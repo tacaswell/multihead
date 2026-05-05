@@ -7,7 +7,10 @@ from HDF5 files into parquet files with sparse array representation.
 
 import argparse
 import json
+import os
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, cast
@@ -20,6 +23,38 @@ import tqdm
 
 from multihead.cli import parse_detector_map
 from multihead.file_io import open_data
+
+_8GB = 8 * 1024 * 1024 * 1024
+
+
+def _get_available_memory_bytes() -> int | None:
+    """
+    Return available system memory in bytes, or None if it cannot be determined.
+    """
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024  # value is in kB
+    except OSError:
+        pass
+    return None
+
+
+def _default_workers() -> int:
+    """
+    Compute a default worker count capped by both CPU count and available RAM.
+
+    The memory cap is available_RAM / 8 GB, floored at 1.
+    """
+    cpu_cap = os.cpu_count() or 1
+
+    mem_bytes = _get_available_memory_bytes()
+    if mem_bytes is None:
+        return cpu_cap
+
+    mem_cap = max(1, int(mem_bytes / _8GB))
+    return min(cpu_cap, mem_cap)
 
 
 def _to_jsonable(obj: Any) -> Any:
@@ -60,13 +95,24 @@ class OnExistAction(Enum):
     OVERWRITE = "overwrite"
 
 
+@dataclass
+class ConvertResult:
+    """Result of converting a single HDF5 file."""
+
+    input_file: Path
+    images_path: Path | None = None
+    scalars_path: Path | None = None
+    skipped: bool = False
+    warnings: list[str] = field(default_factory=list)
+
+
 def convert_file(
     input_path: Path,
     output_dir: Path,
     version: int,
     on_exist: OnExistAction,
     detector_map=None,
-) -> tuple[Path, Path] | None:
+) -> ConvertResult:
     """
     Convert a single HDF5 file to parquet format.
 
@@ -78,14 +124,22 @@ def convert_file(
         Directory where output parquet files will be written
     version : int
         Version of the file format (1 or 2)
+    on_exist : OnExistAction
+        Action to take when output files already exist
+    detector_map : list or None
+        Detector layout map
 
     Returns
     -------
-    images_path : Path
-        Path to the sparse detector images parquet file
-    scalars_path : Path
-        Path to the scalars (tth, monitor) parquet file
+    ConvertResult
+        Result object containing output paths, skip status, and warnings.
+
+    Raises
+    ------
+    FileExistsError
+        If output files exist and on_exist is FAIL.
     """
+    result = ConvertResult(input_file=input_path)
     # Open the raw data
     raw = open_data(input_path, version, detector_map=detector_map)
 
@@ -103,10 +157,14 @@ def convert_file(
     images_path = file_output_dir / "images.parquet"
     scalars_path = file_output_dir / "scalars.parquet"
     metadata_path = file_output_dir / "metadata.json"
+    baseline_path = file_output_dir / "baseline.parquet"
 
     # Check if files exist and handle according to on_exist policy
     files_exist = (
-        images_path.exists() or scalars_path.exists() or metadata_path.exists()
+        images_path.exists()
+        or scalars_path.exists()
+        or metadata_path.exists()
+        or baseline_path.exists()
     )
 
     if files_exist:
@@ -116,10 +174,15 @@ def convert_file(
                 f"Use --on-exist to control this behavior."
             )
         if on_exist == OnExistAction.SKIP:
-            tqdm.tqdm.write(f"⚠ Skipping {input_path.name} (output exists)")
-            return None
+            result.skipped = True
+            result.warnings.append(
+                f"Skipping {input_path.name} (output exists)"
+            )
+            return result
         elif on_exist == OnExistAction.WARN_OVERWRITE:
-            tqdm.tqdm.write(f"⚠ Overwriting existing files for {input_path.name}")
+            result.warnings.append(
+                f"Overwriting existing files for {input_path.name}"
+            )
 
     # Convert detector data to sparse format
     sparse_data = {
@@ -153,8 +216,8 @@ def convert_file(
         for desc, arr in raw.get_detector_scalars().items():
             arr = np.asarray(arr)
             if desc in seen:
-                tqdm.tqdm.write(
-                    f"  ⚠ Skipping detector scalar '{desc}' (column already present)"
+                result.warnings.append(
+                    f"Skipping detector scalar '{desc}' (column already present)"
                 )
                 continue
             if len(arr) != len(tth):
@@ -183,14 +246,19 @@ def convert_file(
             },
             "scan_md": _to_jsonable(raw.get_scan_md()),
             "scan_config": _to_jsonable(raw.get_scan_config()),
-            "pre": _to_jsonable(raw.get_pre()),
-            "post": _to_jsonable(raw.get_post()),
             "staff_log": _to_jsonable(raw.get_staff_log()),
         }
         with metadata_path.open("w") as fout:
             json.dump(meta, fout, indent=2, default=str)
 
-    return images_path, scalars_path
+    # Write baseline.parquet (v1 and v2 both have pre/post).
+    bl = raw.get_baseline()
+    if bl is not None:
+        pq.write_table(bl, baseline_path, compression="snappy")
+
+    result.images_path = images_path
+    result.scalars_path = scalars_path
+    return result
 
 
 def main():
@@ -240,28 +308,63 @@ def main():
         "For single detector simulations use: '[[1]]'",
         default=None,
     )
+    parser.add_argument(
+        "-j",
+        "--workers",
+        type=int,
+        default=None,
+        help="Number of parallel worker processes "
+        "(default: min(CPU count, available_RAM/8GB))",
+    )
 
     args = parser.parse_args()
+
+    # Resolve worker count: explicit flag or auto-detect from CPU/RAM
+    if args.workers is None:
+        args.workers = _default_workers()
 
     # Convert on_exist string to enum
     on_exist = OnExistAction(args.on_exist)
 
-    # Process files with progress bar
-    for input_file in tqdm.tqdm(args.input_files, desc="Converting files"):
-        try:
-            result = convert_file(
-                input_file, args.output_dir, args.version, on_exist, args.detector_map
-            )
-            if result is not None:
-                images_path, scalars_path = result
-                tqdm.tqdm.write(f"✓ Converted {input_file.name}")
-                tqdm.tqdm.write(f"  → Images: {images_path}")
-                tqdm.tqdm.write(f"  → Scalars: {scalars_path}")
-        except FileExistsError as e:
-            tqdm.tqdm.write(f"✗ {e}")
-            sys.exit(1)
-        except Exception as e:
-            tqdm.tqdm.write(f"✗ Failed to convert {input_file.name}: {e}")
+    file_exists_error: FileExistsError | None = None
+
+    # Process files in parallel with a process pool
+    with ProcessPoolExecutor(max_workers=args.workers) as executor:
+        futures = {
+            executor.submit(
+                convert_file,
+                input_file,
+                args.output_dir,
+                args.version,
+                on_exist,
+                args.detector_map,
+            ): input_file
+            for input_file in args.input_files
+        }
+
+        with tqdm.tqdm(total=len(futures), desc="Converting files") as progress:
+            for future in as_completed(futures):
+                input_file = futures[future]
+                try:
+                    result = future.result()
+                    for warning in result.warnings:
+                        tqdm.tqdm.write(f"  ⚠ {warning}")
+                    if result.skipped:
+                        pass  # warning already printed above
+                    elif result.images_path is not None:
+                        tqdm.tqdm.write(f"✓ Converted {input_file.name}")
+                        tqdm.tqdm.write(f"  → Images: {result.images_path}")
+                        tqdm.tqdm.write(f"  → Scalars: {result.scalars_path}")
+                except FileExistsError as e:
+                    tqdm.tqdm.write(f"✗ {e}")
+                    file_exists_error = e
+                except Exception as e:
+                    tqdm.tqdm.write(f"✗ Failed to convert {input_file.name}: {e}")
+                finally:
+                    progress.update(1)
+
+    if file_exists_error is not None:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
