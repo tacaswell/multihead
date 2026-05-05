@@ -175,14 +175,10 @@ def convert_file(
             )
         if on_exist == OnExistAction.SKIP:
             result.skipped = True
-            result.warnings.append(
-                f"Skipping {input_path.name} (output exists)"
-            )
+            result.warnings.append(f"Skipping {input_path.name} (output exists)")
             return result
         elif on_exist == OnExistAction.WARN_OVERWRITE:
-            result.warnings.append(
-                f"Overwriting existing files for {input_path.name}"
-            )
+            result.warnings.append(f"Overwriting existing files for {input_path.name}")
 
     # Convert detector data to sparse format
     sparse_data = {
@@ -214,7 +210,6 @@ def convert_file(
 
     if version == 1:
         for desc, arr in raw.get_detector_scalars().items():
-            arr = np.asarray(arr)
             if desc in seen:
                 result.warnings.append(
                     f"Skipping detector scalar '{desc}' (column already present)"

@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pyarrow as pa
-import pytest
-
 from multihead import aux_metadata
-
 
 PRE_SAMPLE = """\
 # autosave R5.3\tAutomatically generated - DO NOT MODIFY - 251022-192055
@@ -29,7 +25,7 @@ Step 1: UR5 Load (46.9 seconds): [2025-10-22 17:22:32]
         Pre-check: Sample stage was empty before load.
 [2025-10-22 17:22:32] Step 2: Slew Scan (3400.0 seconds):
 Step 2: Slew Scan (3456.2 seconds): [2025-10-22 18:20:09]
-        Scan succesful on Calib Al2O3
+        Scan successful on Calib Al2O3
         Raw data files (11bmb_2384.h5 and 11bmb_2384.mda) saved to /data/oct25
 ===== Selected Functions =====
 1. UR5 Load | {"position": "(0,0)"}
@@ -38,7 +34,7 @@ Step 2: Slew Scan (3456.2 seconds): [2025-10-22 18:20:09]
 *********** Run [2025-10-22 19:19:32] ***********
 [2025-10-22 19:19:32] Step 1: Slew Scan (3400.0 seconds):
 Step 1: Slew Scan (3492.9 seconds): [2025-10-22 20:17:45]
-        Scan succesful on LaB6_x0_y0.75
+        Scan successful on LaB6_x0_y0.75
         Raw data files (11bmb_2386.h5 and 11bmb_2386.mda) saved to /data/oct25
 ===== Selected Functions =====
 1. Slew Scan | {"sampleName": "LaB6_x0_y0.75"}
@@ -127,11 +123,14 @@ def test_parse_autosave_timestamp(tmp_path: Path):
     assert ts == "2025-10-22T19:20:55"
 
 
-def test_baseline_table(tmp_path: Path):
-    pre = {"pv_a": 1.0, "pv_b": "hello"}
-    post = {"pv_a": 2.0, "pv_b": "world"}
+def test_baseline_table():
+    pre: dict[str, float | str] = {"pv_a": 1.0, "pv_b": "hello"}
+    post: dict[str, float | str] = {"pv_a": 2.0, "pv_b": "world"}
     tbl = aux_metadata.baseline_table(
-        pre, post, pre_timestamp="2025-01-01T00:00:00", post_timestamp="2025-01-01T01:00:00"
+        pre,
+        post,
+        pre_timestamp="2025-01-01T00:00:00",
+        post_timestamp="2025-01-01T01:00:00",
     )
     assert tbl is not None
     assert tbl.num_rows == 2

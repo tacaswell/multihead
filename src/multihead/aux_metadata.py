@@ -121,9 +121,7 @@ def find_pre_post(data_path: Path) -> tuple[Path | None, Path | None]:
     return (pre if pre.exists() else None, post if post.exists() else None)
 
 
-_AUTOSAVE_HEADER_RE = re.compile(
-    r"^#\s*autosave\s+\S+\s+.*?(\d{6})-(\d{6})\s*$"
-)
+_AUTOSAVE_HEADER_RE = re.compile(r"^#\s*autosave\s+\S+\s+.*?(\d{6})-(\d{6})\s*$")
 
 
 def parse_autosave_timestamp(path: Path) -> str | None:
@@ -302,7 +300,15 @@ def parse_staff_log(path: Path) -> list[RunBlock]:
             if not s.strip():
                 continue
             if _STEP_LINE_RE.match(s) or s.lstrip().startswith(
-                ("Step ", "Translated", "Raw data", "✅", "❌", "Pre-check", "Post-check")
+                (
+                    "Step ",
+                    "Translated",
+                    "Raw data",
+                    "✅",
+                    "❌",
+                    "Pre-check",
+                    "Post-check",
+                )
             ):
                 steps.append(s)
 
@@ -400,9 +406,7 @@ def index_staff_logs(paths: Sequence[Path]) -> dict[int, list[RunBlock]]:
     return index
 
 
-def staff_log_for_run(
-    run_number: int, directory: Path
-) -> list[RunBlock] | None:
+def staff_log_for_run(run_number: int, directory: Path) -> list[RunBlock] | None:
     """
     Look up staff-log blocks for a single run number.
 
